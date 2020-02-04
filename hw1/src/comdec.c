@@ -92,5 +92,6 @@ int decompress(FILE *in, FILE *out) {
 int validargs(int argc, char **argv)
 {
     // To be implemented.
+    int test = 0;
     return -1;
 }
