@@ -93,5 +93,7 @@ int validargs(int argc, char **argv)
 {
     // To be implemented.
     int test = 0;
+    char c = 'a';
+    int x = 1;
     return -1;
 }
