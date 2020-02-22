@@ -1,6 +1,11 @@
 #include "const.h"
 #include "sequitur.h"
 
+SYMBOL *add_symbol(SYMBOL *s, SYMBOL *rule);
+
+
+SYMBOL *recycled_symbols = NULL;
+
 /*
  * Symbol management.
  *
@@ -19,7 +24,8 @@ int next_nonterminal_value = FIRST_NONTERMINAL;
  * to FIRST_NONTERMINAL;
  */
 void init_symbols(void) {
-    // To be implemented.
+    num_symbols = 0;
+    next_nonterminal_value = FIRST_NONTERMINAL;
 }
 
 /**
@@ -46,8 +52,24 @@ void init_symbols(void) {
  * allocation.
  */
 SYMBOL *new_symbol(int value, SYMBOL *rule) {
-    // To be implemented.
-    return NULL;
+    
+    if (num_symbols > MAX_SYMBOLS){
+        fprintf(stderr, "%s", "The max number of symbols has been reached.");
+        abort();
+    }
+
+    SYMBOL *sp = (symbol_storage+(num_symbols++)); // pointer of the symbol to return
+    SYMBOL s = {value, 0, NULL, NULL, NULL, NULL, NULL}; 
+
+    if (recycled_symbols != NULL){                   
+        sp = recycled_symbols;
+        recycled_symbols = recycled_symbols -> next;
+        return sp;
+    }
+
+    *sp = s;
+
+    return sp;
 }
 
 /**
@@ -62,5 +84,23 @@ SYMBOL *new_symbol(int value, SYMBOL *rule) {
  * next field of the SYMBOL structure to chain together the entries.
  */
 void recycle_symbol(SYMBOL *s) {
-    // To be implemented.
+
+    if (recycled_symbols == NULL){ //if empty point to the symbol
+        recycled_symbols = s;
+        return;
+    }
+
+    s -> next = recycled_symbols; //assigns the next of the symbol to rec
+    recycled_symbols = s; //rec now points to the new head
+    
+}
+
+SYMBOL *add_symbol(SYMBOL *s, SYMBOL *rule){
+
+    s -> prev = rule -> prev;
+    s -> next = rule;    
+    rule -> prev -> next = s;
+    rule -> prev = s;
+
+    return s;
 }

@@ -50,7 +50,11 @@
  * Initializes the rules by setting main_rule to NULL and clearing the rule_map.
  */
 void init_rules(void) {
-    // To be implemented.
+    main_rule = NULL;
+
+    for (int i = 0; i < SYMBOL_VALUE_MAX; i++){
+        *(rule_map+i) = NULL;
+    }
 }
 
 /**
@@ -69,8 +73,20 @@ void init_rules(void) {
  * the responsiblity of the client of this module.
  */
 SYMBOL *new_rule(int v) {
-    // To be implemented.
-    return NULL;
+
+    if (v < FIRST_NONTERMINAL){
+        abort();
+    }
+
+    SYMBOL *sp = new_symbol(v, NULL);
+    if (v >= FIRST_NONTERMINAL){
+        sp -> refcnt++;
+    }
+    sp -> rule = sp;
+    sp -> next = sp;
+    sp -> prev = sp;
+
+    return sp;
 }
 
 /**
@@ -85,7 +101,19 @@ SYMBOL *new_rule(int v) {
  * the list; i.e. between main_rule->prevr and main_rule.
  */
 void add_rule(SYMBOL *rule) {
-    // To be implemented.
+
+    if (main_rule == NULL){
+        main_rule = rule;
+        main_rule -> nextr = main_rule;
+        main_rule -> prevr = main_rule;
+        return;
+    }
+
+    rule -> prevr = main_rule -> prevr;
+    rule -> nextr = main_rule;
+    main_rule -> prevr -> nextr = rule;
+    main_rule -> prevr = rule;
+
 }
 
 /**
@@ -100,7 +128,14 @@ void add_rule(SYMBOL *rule) {
  * the disposition of those symbols is the responsibility of the caller.
  */
 void delete_rule(SYMBOL *rule) {
-    // To be implemented.
+
+    rule -> prevr -> nextr = rule -> nextr;
+    rule -> nextr -> prevr = rule -> prev;
+
+    if (main_rule -> refcnt == 0){
+        recycle_symbol(main_rule);
+    }
+    
 }
 
 /**
@@ -110,8 +145,10 @@ void delete_rule(SYMBOL *rule) {
  * @return  The same rule that was passed as argument.
  */
 SYMBOL *ref_rule(SYMBOL *rule) {
-    // To be implemented.
-    return NULL;
+
+    rule -> refcnt++;
+    
+    return rule;
 }
 
 /**
@@ -123,5 +160,10 @@ SYMBOL *ref_rule(SYMBOL *rule) {
  *
  */
 void unref_rule(SYMBOL *rule) {
-    // To be implemented.
+    
+    if (--(rule -> refcnt) < 0){
+        fprintf(stderr, "%s", "This reference count is negative.");
+    } 
 }
+
+

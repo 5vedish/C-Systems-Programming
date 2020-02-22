@@ -13,7 +13,9 @@
  * Clear the digram hash table.
  */
 void init_digram_hash(void) {
-    // To be implemented.
+    for ( int i = 0; i < MAX_DIGRAMS; i++){
+        *(digram_table+i) = NULL;
+    }
 }
 
 /**
@@ -25,7 +27,26 @@ void init_digram_hash(void) {
  * symbol values) in the hash table, if there is one, otherwise NULL.
  */
 SYMBOL *digram_get(int v1, int v2) {
-    // To be implemented.
+
+    int index = DIGRAM_HASH(v1, v2);
+    
+    for (int i = index; (*(digram_table+i) != NULL) ; i++){
+        
+        if (i == MAX_DIGRAMS){ 
+            i = 0;
+        }
+
+        SYMBOL *dp = *(digram_table+i); 
+
+    if (*(digram_table+i) != TOMBSTONE){ 
+
+        if (dp -> value == v1 && dp -> next -> value == v2){
+            return *(digram_table+i);
+        }
+    }
+
+    }
+
     return NULL;
 }
 
@@ -50,7 +71,32 @@ SYMBOL *digram_get(int v1, int v2) {
  * sense to do it here.
  */
 int digram_delete(SYMBOL *digram) {
-    // To be implemented.
+
+    int v1 = digram -> value, v2 = digram -> next -> value;
+    int index = DIGRAM_HASH(v1, v2);
+
+    for (int i = index; (*(digram_table+i) != NULL) ; i++){
+        
+        if (i == MAX_DIGRAMS){
+            i = 0;
+        }
+
+        SYMBOL *dp = *(digram_table+i);
+
+        if (*(digram_table+i) != TOMBSTONE){
+
+            if (dp -> value == v1 && dp -> next -> value == v2){
+
+            *(digram_table+i) = TOMBSTONE;
+            return 0;
+
+        }
+
+        }
+
+        
+    }
+
     return -1;
 }
 
@@ -64,6 +110,41 @@ int digram_delete(SYMBOL *digram) {
  * table being full or the given digram not being well-formed.
  */
 int digram_put(SYMBOL *digram) {
-    // To be implemented.
+
+    int v1 = digram -> value, v2 = digram -> next -> value, 
+    index = DIGRAM_HASH(v1,v2), isFull = 0;
+
+
+    for (int i = 0; i < MAX_DIGRAMS; i++){
+        if (*(digram_table+i) == NULL){
+            isFull = 1;
+            break;
+        }
+    }
+
+    if (isFull == 0){
+        return -1;
+    }
+
+
+    if (digram_get(v1, v2) == NULL){
+
+        for (int i = index; i < MAX_DIGRAMS; i++){
+            
+            if (*(digram_table+i) == NULL || *(digram_table+i) == TOMBSTONE){ // if that position is null, put it there
+                *(digram_table+i) = digram;
+                return 0;
+            }
+
+            if (i == MAX_DIGRAMS){ // resets if it reaches end of array
+                i = 0;
+            }
+
+        }
+
+    } else {
+        return 1;
+    }
+
     return -1;
 }
