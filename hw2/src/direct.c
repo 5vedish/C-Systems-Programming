@@ -10,13 +10,15 @@
 
 //Implementation
 #include <sys/types.h>
+#include <dirent.h>
+
 
 
 
         
 
 
-        
+
 #define NAMELENGTH	14
 #ifdef	SYS_III
 	FILE	*opendir(name)	{ return (fopen(name,"r") ); }

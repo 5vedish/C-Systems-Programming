@@ -42,9 +42,12 @@
 //Implementation
 #ifdef LINUX
 
-
-
-
+#include <dirent.h>
+#include <sys/types.h>
+#define OPEN DIR
+#define READ struct dirent
+#define NAME(x) ((x).d_name)
+#define INO(x) ((x).d_ino)
 
 
 #endif // LINUX
