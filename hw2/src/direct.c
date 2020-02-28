@@ -11,20 +11,12 @@
 //Implementation
 #include <sys/types.h>
 #include <dirent.h>
-
-
-
-
-        
-
-
+#include <customize.h>
 
 #define NAMELENGTH	14
 #ifdef	SYS_III
 	FILE	*opendir(name)	{ return (fopen(name,"r") ); }
-#else
-	#define opendir(name)	fopen(name, "r")
-#endif
+//Implementation
 #define closedir(fp)	fclose(fp)
 
 struct dir_entry {		/* What the system uses internally. */
@@ -59,3 +51,8 @@ readdir(dp)
 
     return (READ *) NULL;
 }
+
+#else
+	#define opendir(name)	fopen(name, "r")
+#endif
+

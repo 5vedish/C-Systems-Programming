@@ -64,7 +64,9 @@
 #include "hash.h"
 
 //Implementation
+#ifdef LINUX
 #include <headers.h>
+#endif
 
 
 

@@ -36,14 +36,11 @@
 #	define	READ	struct direct
 #	define	NAME(x)	((x).d_name)
 #	define	INO(x)	((x).d_ino)
-
-#	include		"direct.c"
-
+#endif
 //Implementation
 #ifdef LINUX
 
 #include <dirent.h>
-#include <sys/types.h>
 #define OPEN DIR
 #define READ struct dirent
 #define NAME(x) ((x).d_name)
@@ -54,6 +51,6 @@
 
 #endif
 
-#if !(defined(BSD) || !defined(SYS_V) || !defined(SYS_III) || !defined(SCO_XENIX))
+#if !(defined(BSD) || defined(SYS_V) || defined(SYS_III) || defined(SCO_XENIX) || defined(LINUX))
 "This is an Error"
 #endif
