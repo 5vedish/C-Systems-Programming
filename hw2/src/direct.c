@@ -9,14 +9,16 @@
  */
 
 //Implementation
+#ifdef LINUX
 #include <sys/types.h>
 #include <dirent.h>
 #include <customize.h>
+#endif
 
 #define NAMELENGTH	14
 #ifdef	SYS_III
 	FILE	*opendir(name)	{ return (fopen(name,"r") ); }
-//Implementation
+//Implementation (swap)
 #define closedir(fp)	fclose(fp)
 
 struct dir_entry {		/* What the system uses internally. */
@@ -29,7 +31,6 @@ struct direct {			/* What these routines return. */
     char            d_name[NAMELENGTH];
     char            terminator;
 };
-
 
  /*
   * Read a directory, returning the next (non-empty) slot. 
@@ -53,6 +54,10 @@ readdir(dp)
 }
 
 #else
-	#define opendir(name)	fopen(name, "r")
+
+    #ifdef LINUX
+        #define opendir(name)	fopen(name, "r")
+    #endif
+	
 #endif
 

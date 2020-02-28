@@ -66,8 +66,14 @@
 //Implementation
 #ifdef LINUX
 #include <headers.h>
+static char *lastfield(char *p, char c);
+static void down(char *subdir);
+static int chk_4_dir(char *path);
+static int is_directory(char *path);
+static int get_data(char *path, int cont);
 #endif
 
+ 
 
 
 
