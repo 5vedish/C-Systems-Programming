@@ -63,6 +63,11 @@
 #include "customize.h"
 #include "hash.h"
 
+//Implementation
+#include <headers.h>
+
+
+
 
 #ifdef	SYS_III
 	#define	rewinddir(fp)	rewind(fp)

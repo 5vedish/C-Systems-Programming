@@ -39,6 +39,16 @@
 
 #	include		"direct.c"
 
+//Implementation
+#ifdef LINUX
+
+
+
+
+
+
+#endif // LINUX
+
 #endif
 
 #if !(defined(BSD) || !defined(SYS_V) || !defined(SYS_III) || !defined(SCO_XENIX))

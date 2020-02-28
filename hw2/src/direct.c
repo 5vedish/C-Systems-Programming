@@ -8,6 +8,15 @@
  *	alternative.
  */
 
+//Implementation
+#include <sys/types.h>
+
+
+
+        
+
+
+        
 #define NAMELENGTH	14
 #ifdef	SYS_III
 	FILE	*opendir(name)	{ return (fopen(name,"r") ); }
