@@ -114,7 +114,7 @@ int		indent = 0,		/* current indent */
 		depth = 9999,		/* max depth */
 		cur_depth = 0,	
 		sum = FALSE,		/* sum the subdirectories */
-		dup = FALSE,		/* use duplicate inodes */
+		is_dupe = FALSE,		/* use duplicate inodes */
 		floating = FALSE,	/* floating column widths */
 		sort = FALSE,
 		cnt_inodes = FALSE,	/* count inodes */
@@ -173,7 +173,7 @@ int	last_subdir = FALSE;	/* the visual display */
 
 
 
-down(subdir)
+void down(subdir)
 char	*subdir;
 {
 OPEN	*dp;			/* stream from a directory */
@@ -483,7 +483,7 @@ char           *path;
   * directory, go down into it, and get the data from all files inside. 
   */
 
-get_data(path,cont)
+void get_data(path,cont)
 char           *path;
 int		cont;    
 {
@@ -499,7 +499,7 @@ int		i;
 
 		    /* Don't do it again if we've already done it once. */
 
-		if ( (h_enter(stb.st_dev, stb.st_ino) == OLD) && (!dup) )
+		if ( (h_enter(stb.st_dev, stb.st_ino) == OLD) && (!is_dupe) )
 			return;
 		inodes++;
 		sizes+= K(stb.st_size);
@@ -534,7 +534,7 @@ int	user_file_list_supplied = 0;
 						optarg++;
 					}
 					break;
-			case 'd':	dup = TRUE;
+			case 'd':	is_dupe = TRUE;
 					break;	
 			case 'i':	cnt_inodes = TRUE;
 					break;
@@ -544,7 +544,7 @@ int	user_file_list_supplied = 0;
 			case 't':	sw_summary = TRUE;
 					break;
 			case 'q':	quick = TRUE;
-					dup = FALSE;
+					is_dupe = FALSE;
 					sum = FALSE;
 					cnt_inodes = FALSE;
 					break;
@@ -582,7 +582,7 @@ int	user_file_list_supplied = 0;
 
 		if (version>1) {
 			printf("Tree height:	%d\n",depth);
-			if (dup) printf("Include duplicate inodes\n");
+			if (is_dupe) printf("Include duplicate inodes\n");
 			if (cnt_inodes) printf("Count inodes\n");
 			if (sum) printf("Include unseen subdirectories in totals\n");
 			if (sw_summary) printf("Print totals at end\n");
