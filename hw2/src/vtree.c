@@ -186,7 +186,7 @@ int	i, x;
 struct	stat	stb;
 
 #ifdef	MEMORY_BASED
-struct RD_list	*head, *tail, *tmp_RD, *tmp1_RD;		/* head and tail of directory list */
+struct RD_list	*head = NULL, *tail = NULL, *tmp_RD = NULL, *tmp1_RD = NULL;		/* head and tail of directory list */
 struct RD_list	sz;
 READ		tmp_entry;
 #endif
