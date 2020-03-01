@@ -85,7 +85,7 @@ static void get_data(char *path, int cont);
 #define SAME		0	/* for strcmp */
 #define BLOCKSIZE	512	/* size of a disk block */
 
-#define K(x)		((x + 1023)/1024)	/* convert stat(2) blocks into
+#define K(x)		(x/2)	/* convert stat(2) blocks into
 					 * k's.  On my machine, a block
 					 * is 512 bytes. */
 
@@ -287,7 +287,7 @@ READ		tmp_entry;
  		    ( strcmp(NAME(*file), "..") != SAME &&
 		     strcmp(NAME(*file), ".") != SAME &&
 		     chk_4_dir(NAME(*file)) ) ) {
-			tmp_RD = (struct RD_list *) malloc(sizeof(struct RD_list ));
+			tmp_RD = (struct RD_list *) malloc(sizeof(struct RD_list)); //this was fixed to allocate struct instead of pointer size
 			memcpy(&tmp_RD->entry, file, sizeof(tmp_entry));
 			tmp_RD->bptr = head;
 			tmp_RD->fptr = NULL;
@@ -502,7 +502,7 @@ int		i;
 		if ( (h_enter(stb.st_dev, stb.st_ino) == OLD) && (!is_dupe) )
 			return;
 		inodes++;
-		sizes+= K(stb.st_size);
+		sizes+= K(stb.st_blocks); //changed this to use blocks instead of size
 	}
 } /* get_data */
 
