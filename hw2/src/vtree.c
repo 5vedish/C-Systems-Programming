@@ -491,8 +491,12 @@ int		cont;
 int		i;
 
 	if (cont) { 
-		if (is_directory(path)) 
+		if (is_directory(path)){
+			inodes++;
+			sizes+= K(stb.st_blocks);
 			down(path);
+		} 	
+			
 	}
 	else {
 		if (is_directory(path)) return;
