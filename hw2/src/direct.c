@@ -8,7 +8,7 @@
  *	alternative.
  */
 
-//Implementation
+//Implementation to conditionalize for linux
 #ifdef LINUX
 #include <sys/types.h>
 #include <dirent.h>
@@ -18,7 +18,7 @@
 #define NAMELENGTH	14
 #ifdef	SYS_III
 	FILE	*opendir(name)	{ return (fopen(name,"r") ); }
-//Implementation (swap)
+//Implementation (swap to conditionalize for sysiii)
 #define closedir(fp)	fclose(fp)
 
 struct dir_entry {		/* What the system uses internally. */

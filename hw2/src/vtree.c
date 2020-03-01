@@ -63,7 +63,7 @@
 #include "customize.h"
 #include "hash.h"
 
-//Implementation
+//Implementation to conditionalize for linux
 #ifdef LINUX
 #include <headers.h>
 #include <unistd.h>
@@ -185,7 +185,7 @@ READ	*readdir ();
 int	i, x;
 struct	stat	stb;
 
-#ifdef	MEMORY_BASED
+#ifdef	MEMORY_BASED // all fields in line below set to null in order to initialize
 struct RD_list	*head = NULL, *tail = NULL, *tmp_RD = NULL, *tmp1_RD = NULL;		/* head and tail of directory list */
 struct RD_list	sz;
 READ		tmp_entry;
@@ -491,9 +491,9 @@ int		cont;
 int		i;
 
 	if (cont) { 
-		if (is_directory(path)){
+		if (is_directory(path)){ //included both additional block count and node count
 			inodes++;
-			sizes+= K(stb.st_blocks);
+			sizes+= K(stb.st_blocks); 
 			down(path);
 		} 	
 			
@@ -631,7 +631,7 @@ int	user_file_list_supplied = 0;
 
 	if (sw_summary) {
 		printf("\n\nTotal space used: %ld\n",total_sizes);
-		if (cnt_inodes) printf("Total inodes: %d\n",total_inodes);
+		if (cnt_inodes) printf("Total inodes: %d\n",total_inodes); //have it print total instead
 	}
 	
 #ifdef HSTATS

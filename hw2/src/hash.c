@@ -18,7 +18,7 @@
 #include <sys/types.h>
 #include "hash.h"
 
-//Implementation
+//Implementation to conditionalize for linux
 #ifdef LINUX
 #include <string.h>
 
