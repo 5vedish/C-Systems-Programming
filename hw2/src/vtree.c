@@ -412,10 +412,10 @@ READ		tmp_entry;
 				/* free the allocated memory */
 	tmp_RD = head;
 	
-	while (tmp_RD) {
-		
-		free(tmp_RD);
-		tmp_RD = tmp_RD->fptr;
+	while (head) { //changed it to move the head instead
+		tmp_RD = head->fptr; //store the address of the next ptr while it isn't freed yet
+		free(head);
+		head = tmp_RD;		//now we can properly assign the saved ptr to head and keep going
 	}
 #endif	
 
