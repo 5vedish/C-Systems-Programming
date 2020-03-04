@@ -411,7 +411,9 @@ READ		tmp_entry;
 #ifdef	MEMORY_BASED
 				/* free the allocated memory */
 	tmp_RD = head;
+	
 	while (tmp_RD) {
+		
 		free(tmp_RD);
 		tmp_RD = tmp_RD->fptr;
 	}
@@ -615,7 +617,7 @@ int	user_file_list_supplied = 0;
     /* Zero out grand totals */
 	total_inodes = total_sizes = 0;
     /* Zero out sub_dirs */
-	for (i=0; i<=MAX_V_DEPTH; i++) {
+	for (i=0; i<MAX_V_DEPTH; i++) { //fixed so it wouldn't intrude into memory outside of the array
 		sub_dirs[i] = 0;
 		sub_dirs_indents[i] = 0;
 	}
@@ -641,7 +643,7 @@ int	user_file_list_supplied = 0;
 	h_stats();
 #endif
 
-	
+	printf("%s", Program);
 
 	exit(0);
 } /* main */
