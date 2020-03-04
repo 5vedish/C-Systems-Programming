@@ -268,7 +268,7 @@ READ		tmp_entry;
 		indented = FALSE;
 		return;
 	} 
-	closedir(dp);
+
 
 	cur_depth++;
 	indent+=3;
@@ -440,6 +440,7 @@ READ		tmp_entry;
 	sub_dirs[cur_depth] = 0;
 	cur_depth--;
 
+	closedir(dp);
 	chdir(cwd);			/* go back where we were */
 
 
@@ -640,11 +641,7 @@ int	user_file_list_supplied = 0;
 	h_stats();
 #endif
 
-
-
-
-
-
+	
 
 	exit(0);
 } /* main */
