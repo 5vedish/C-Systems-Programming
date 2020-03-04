@@ -267,7 +267,8 @@ READ		tmp_entry;
 		printf(" - can't read %s\n", subdir);
 		indented = FALSE;
 		return;
-	}
+	} 
+	closedir(dp);
 
 	cur_depth++;
 	indent+=3;
@@ -638,6 +639,12 @@ int	user_file_list_supplied = 0;
 	fflush(stdout);
 	h_stats();
 #endif
+
+
+
+
+
+
 
 	exit(0);
 } /* main */
