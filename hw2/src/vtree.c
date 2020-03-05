@@ -63,10 +63,14 @@
 #include "customize.h"
 #include "hash.h"
 
+//Implementation to put getopt into linux
+#include <unistd.h>
+#include <getopt.h>
 //Implementation to conditionalize for linux
+
 #ifdef LINUX
 #include <headers.h>
-#include <unistd.h>
+
 static char *lastfield(char *p, int c);
 static void down(char *subdir);
 static int chk_4_dir(char *path);
@@ -305,7 +309,7 @@ READ		tmp_entry;
 		while (tmp_RD) {
 			tmp1_RD = tmp_RD->fptr;
 			while (tmp1_RD) {
-				if (*NAME(tmp_RD->entry) > *NAME(tmp1_RD->entry)) { //compare the values instead of the pointers
+				if (*NAME(tmp_RD->entry) > *NAME(tmp1_RD->entry)) { //compare the values instead of the addresses
 					/* swap the two */
 					memcpy(&tmp_entry, &tmp_RD->entry, sizeof(tmp_entry));
 					memcpy(&tmp_RD->entry, &tmp1_RD->entry, sizeof(tmp_entry));
@@ -531,6 +535,22 @@ int	user_file_list_supplied = 0;
 
     /* Pick up options from command line */
 
+	int option_index = 0;
+
+	static struct option long_options[] = {
+		{"duplicates", no_argument, 0, 'd'},
+		{"floating-columns-widths", no_argument, 0, 'f'},
+		{"height", required_argument, 0, 'h'},
+		{"inodes", no_argument, 0, 'i'},
+		{"sort-directories", no_argument, 0, 'o'},
+		{"totals", no_argument, 0, 't'},
+		{"quick-display", no_argument, 0, 'q'},
+		{"visual-display", no_argument, 0, 'v'},
+		{"version", no_argument, 0, 'V'},
+		{0,0,0,0}
+	};
+
+	#ifndef LINUX
 	while ((option = getopt(argc, argv, "dfh:iostqvV")) != EOF) {
 		switch (option) {
 			case 'f':	floating = TRUE; break;
@@ -563,6 +583,7 @@ int	user_file_list_supplied = 0;
 					break;
 			default:	err = TRUE;
 		}
+
 		if (err) {
 			fprintf(stderr,"%s: [ -d ] [ -h # ] [ -i ] [ -o ] [ -s ] [ -q ] [ -v ] [ -V ]\n",Program);
 			fprintf(stderr,"	-d	count duplicate inodes\n");
@@ -578,8 +599,64 @@ int	user_file_list_supplied = 0;
 			fprintf(stderr,"		(2 Vs shows specified options)\n");
 			exit(-1);
 		}
-	
 	}
+	#endif
+
+	#ifdef LINUX
+	while ((option = getopt_long(argc, argv, "dfh:iostqvV", long_options, &option_index)) != EOF) {
+		switch (option) {
+			case 'f':	floating = TRUE; break;
+			case 'h':	depth = atoi(optarg);
+					while (*optarg) {
+						if (!isdigit(*optarg)) {
+							err = TRUE;
+							break;
+						}
+						optarg++;
+					}
+					break;
+			case 'd':	is_dupe = TRUE;
+					break;	
+			case 'i':	cnt_inodes = TRUE;
+					break;
+			case 'o':	sort = TRUE; break;	
+			case 's':	sum = TRUE;
+					break;
+			case 't':	sw_summary = TRUE;
+					break;
+			case 'q':	quick = TRUE;
+					is_dupe = FALSE;
+					sum = FALSE;
+					cnt_inodes = FALSE;
+					break;
+			case 'v':	visual = TRUE;
+					break;
+			case 'V':	version++;
+					break;
+			default:	err = TRUE;
+		}
+
+		if (err) {
+			fprintf(stderr,"%s: [ -d ] [ -h # ] [ -i ] [ -o ] [ -s ] [ -q ] [ -v ] [ -V ]\n",Program);
+			fprintf(stderr,"	-d	count duplicate inodes\n");
+			fprintf(stderr,"	-f	floating column widths\n");
+			fprintf(stderr,"	-h #	height of tree to look at\n");
+			fprintf(stderr,"	-i	count inodes\n");
+			fprintf(stderr,"	-o	sort directories before processing\n");
+			fprintf(stderr,"	-s	include subdirectories not shown due to -h option\n");
+			fprintf(stderr,"	-t	totals at the end\n");
+			fprintf(stderr,"	-q	quick display, no counts\n");
+			fprintf(stderr,"	-v	visual display\n");
+			fprintf(stderr,"	-V	show current version\n");
+			fprintf(stderr,"		(2 Vs shows specified options)\n");
+			exit(-1);
+		}
+	}
+
+
+
+
+	#endif
 
 	if (version > 0 ) {
 
