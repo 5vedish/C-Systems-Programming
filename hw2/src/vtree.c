@@ -298,13 +298,14 @@ READ		tmp_entry;
 		}
 	}
 
+	tmp_RD = head; //now starting at the head
 				/* screwy, inefficient, bubble sort	*/
 				/* but it works				*/
 	if (sort) {
 		while (tmp_RD) {
 			tmp1_RD = tmp_RD->fptr;
 			while (tmp1_RD) {
-				if (NAME(tmp_RD->entry) > NAME(tmp1_RD->entry)) {
+				if (*NAME(tmp_RD->entry) > *NAME(tmp1_RD->entry)) { //compare the values instead of the pointers
 					/* swap the two */
 					memcpy(&tmp_entry, &tmp_RD->entry, sizeof(tmp_entry));
 					memcpy(&tmp_RD->entry, &tmp1_RD->entry, sizeof(tmp_entry));
@@ -642,8 +643,6 @@ int	user_file_list_supplied = 0;
 	fflush(stdout);
 	h_stats();
 #endif
-
-	printf("%s", Program);
 
 	exit(0);
 } /* main */

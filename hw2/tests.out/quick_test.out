@@ -1,0 +1,7 @@
+ tests/rsrc/test_tree
+   S
+      a
+      c
+      b
+      d
+bin/vtree
