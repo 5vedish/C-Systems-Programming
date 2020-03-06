@@ -547,6 +547,7 @@ int	user_file_list_supplied = 0;
 		{"quick-display", no_argument, 0, 'q'},
 		{"visual-display", no_argument, 0, 'v'},
 		{"version", no_argument, 0, 'V'},
+		{"no-follow-symlinks", no_argument, 0, 'l'},
 		{0,0,0,0}
 	};
 
@@ -603,7 +604,7 @@ int	user_file_list_supplied = 0;
 	#endif
 
 	#ifdef LINUX
-	while ((option = getopt_long(argc, argv, "dfh:iostqvV", long_options, &option_index)) != EOF) {
+	while ((option = getopt_long(argc, argv, "dfh:iostqvVl", long_options, &option_index)) != EOF) {
 		switch (option) {
 			case 'f':	floating = TRUE; break;
 			case 'h':	depth = atoi(optarg);
@@ -619,7 +620,9 @@ int	user_file_list_supplied = 0;
 					break;	
 			case 'i':	cnt_inodes = TRUE;
 					break;
-			case 'o':	sort = TRUE; break;	
+			#ifdef MEMORY_BASED //added change for sort dir
+			case 'o':	sort = TRUE; break;
+			#endif	
 			case 's':	sum = TRUE;
 					break;
 			case 't':	sw_summary = TRUE;
@@ -633,6 +636,12 @@ int	user_file_list_supplied = 0;
 					break;
 			case 'V':	version++;
 					break;
+			#ifdef LSTAT		
+			case 'l': sw_follow_links = 0; //added the case for LSTAT
+					break;
+
+			#endif 
+
 			default:	err = TRUE;
 		}
 
@@ -642,13 +651,18 @@ int	user_file_list_supplied = 0;
 			fprintf(stderr,"	-f	floating column widths\n");
 			fprintf(stderr,"	-h #	height of tree to look at\n");
 			fprintf(stderr,"	-i	count inodes\n");
+			#ifdef MEMORY_BASED //added change for the sort dir
 			fprintf(stderr,"	-o	sort directories before processing\n");
+			#endif
 			fprintf(stderr,"	-s	include subdirectories not shown due to -h option\n");
 			fprintf(stderr,"	-t	totals at the end\n");
 			fprintf(stderr,"	-q	quick display, no counts\n");
 			fprintf(stderr,"	-v	visual display\n");
 			fprintf(stderr,"	-V	show current version\n");
 			fprintf(stderr,"		(2 Vs shows specified options)\n");
+			#ifdef LSTAT
+			fprintf(stderr,"	-l	does not follow symbolic links\n"); //added case for LSTAT
+			#endif
 			exit(-1);
 		}
 	}
