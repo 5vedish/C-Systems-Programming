@@ -65,11 +65,12 @@
 
 //Implementation to put getopt into linux
 #include <unistd.h>
-#include <getopt.h>
+
 //Implementation to conditionalize for linux
 
 #ifdef LINUX
 #include <headers.h>
+#include <getopt.h>
 
 static char *lastfield(char *p, int c);
 static void down(char *subdir);
@@ -535,22 +536,6 @@ int	user_file_list_supplied = 0;
 
     /* Pick up options from command line */
 
-	int option_index = 0;
-
-	static struct option long_options[] = {
-		{"duplicates", no_argument, 0, 'd'},
-		{"floating-columns-widths", no_argument, 0, 'f'},
-		{"height", required_argument, 0, 'h'},
-		{"inodes", no_argument, 0, 'i'},
-		{"sort-directories", no_argument, 0, 'o'},
-		{"totals", no_argument, 0, 't'},
-		{"quick-display", no_argument, 0, 'q'},
-		{"visual-display", no_argument, 0, 'v'},
-		{"version", no_argument, 0, 'V'},
-		{"no-follow-symlinks", no_argument, 0, 'l'},
-		{0,0,0,0}
-	};
-
 	#ifndef LINUX
 	while ((option = getopt(argc, argv, "dfh:iostqvV")) != EOF) {
 		switch (option) {
@@ -601,10 +586,24 @@ int	user_file_list_supplied = 0;
 			exit(-1);
 		}
 	}
-	#endif
+	
 
-	#ifdef LINUX
-	while ((option = getopt_long(argc, argv, "dfh:iostqvVl", long_options, &option_index)) != EOF) {
+	#else
+
+	static struct option long_options[] = {
+		{"duplicates", no_argument, 0, 'd'},
+		{"floating-columns-widths", no_argument, 0, 'f'},
+		{"height", required_argument, 0, 'h'},
+		{"inodes", no_argument, 0, 'i'},
+		{"sort-directories", no_argument, 0, 'o'},
+		{"totals", no_argument, 0, 't'},
+		{"quick-display", no_argument, 0, 'q'},
+		{"visual-display", no_argument, 0, 'v'},
+		{"version", no_argument, 0, 'V'},
+		{"no-follow-symlinks", no_argument, 0, 'l'},
+		{0,0,0,0}
+	};
+	while ((option = getopt_long(argc, argv, "dfh:iostqvVl", long_options, NULL)) != EOF) {
 		switch (option) {
 			case 'f':	floating = TRUE; break;
 			case 'h':	depth = atoi(optarg);
@@ -666,9 +665,6 @@ int	user_file_list_supplied = 0;
 			exit(-1);
 		}
 	}
-
-
-
 
 	#endif
 
