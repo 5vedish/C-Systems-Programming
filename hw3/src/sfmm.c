@@ -22,14 +22,9 @@ void *sf_malloc(size_t size) {
         return NULL;
     }
 
-    //cannot allocate less than 64 (throw error?)
-    if (size < 64){
-
-    }
-
     static int heap_init = 0;
     int blocksize = 0;
-    blocksize += size + (64 - (size%64)); //for memory alignment
+    blocksize += (size + (64 - (size%64)))/64; //for memory alignment
 
     if (heap_init == 0){
         //initialize heap (needed?)
@@ -57,16 +52,36 @@ void *sf_malloc(size_t size) {
 
         *epilogue = 0 | THIS_BLOCK_ALLOCATED;
 
+        stahep += 64; //to point to end of prologue
+        sf_block* srt_wil = (sf_block *) stahep; //start of wilderness block
+        sf_free_list_heads[9].body.links.next = srt_wil;
+
+        srt_wil->body.links.prev = &sf_free_list_heads[9]; //maintain doubly linked
+        srt_wil->body.links.next = &sf_free_list_heads[9];
+
+        int wil_siz = (epilogue - (sf_header *) srt_wil) * sizeof(sf_header); //getting size of wilderness block
+        wil_siz = wil_siz | PREV_BLOCK_ALLOCATED;
+        srt_wil->header = wil_siz;
+
         heap_init = 1;
     }
 
+    // sf_block *all_blo = ret_free(blocksize);
 
-    sf_block testblock;
-    testblock.header = 101;
-    sf_free_list_heads[8].body.links.next = &testblock;
-    sf_block *test2 = ret_free(100);
 
-    printf("%lu", test2 -> header);
+
+
+
+    
+
+
+    // sf_block testblock;
+    // testblock.header = 3000;
+    // sf_free_list_heads[8].body.links.next = &testblock;
+    // sf_block *test2 = ret_free(blocksize);
+    // printf("%lu", test2 -> header);
+
+
 
     
     
@@ -102,6 +117,7 @@ sf_block *ret_free(size_t size){
 
     sf_block *block = sf_free_list_heads;
     int index; //index to return if there is a block
+    int cot_siz; //to retrieve size from header
 
     for (index = 0; index < 8; index++){
 
@@ -122,19 +138,17 @@ sf_block *ret_free(size_t size){
     if (size >= fibonacci[8]){ //if greater than 34
 
         while (counter->body.links.next != counter){
+
+            cot_siz = ((counter -> header) & BLOCK_SIZE_MASK)/64;
             
-            if (counter->header > size){ //if a block greater than 34 can still hold this
+            if (cot_siz >= size){ //if a block greater than 34 can still hold this
                 return counter;
             }
         counter = counter->body.links.next;
         }
 
-    } else {
-        //do wilderness block things
-    }
+    } 
+        return sf_free_list_heads[9].body.links.next; //if it gets past prev loop you need to allocate from wilderness
 
-
-
-
-    return (sf_free_list_heads[index].body.links.next);
 }
+
