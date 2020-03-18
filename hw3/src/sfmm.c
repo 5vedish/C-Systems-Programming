@@ -62,9 +62,9 @@ void *sf_malloc(size_t size) {
 
 
     sf_block testblock;
-    testblock.header = 15;
-    sf_free_list_heads[4].body.links.next = &testblock;
-    sf_block *test2 = ret_free(8);
+    testblock.header = 101;
+    sf_free_list_heads[8].body.links.next = &testblock;
+    sf_block *test2 = ret_free(100);
 
     printf("%lu", test2 -> header);
 
@@ -105,21 +105,32 @@ sf_block *ret_free(size_t size){
 
     for (index = 0; index < 8; index++){
 
-
         if (block->body.links.next != block){
 
             if (size <= fibonacci[index]){
-                break; //return that block
+                return (sf_free_list_heads[index].body.links.next); //return that block
             }
+
         }
 
         block++;
     }
 
-    return (sf_free_list_heads[index].body.links.next);
+   
+    sf_block *counter = sf_free_list_heads+8; //gets me to the ninth index of free list array
 
-    if (size >= fibonacci[9]){ //if greater than 34
+    if (size >= fibonacci[8]){ //if greater than 34
 
+        while (counter->body.links.next != counter){
+            
+            if (counter->header > size){ //if a block greater than 34 can still hold this
+                return counter;
+            }
+        counter = counter->body.links.next;
+        }
+
+    } else {
+        //do wilderness block things
     }
 
 
