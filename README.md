@@ -666,7 +666,8 @@ This is as described in the book.
 We do not make any separate C structure definitions for the prologue and epilogue.
 They can be manipulated using the existing `sf_block` structure, though care must be taken
 not to access fields that are not valid for these special blocks
-(*i.e.* `prev_footer` for the prologue and anything other than `header` for the epilogue).
+(*i.e.* `prev_footer` for the prologue and anything other than `header` and `prev_footer`
+for the epilogue).
 
 As your heap is initially empty, at the time of the first call to `sf_malloc`
 you will need to make one call to `sf_mem_grow` to obtain a page of memory
