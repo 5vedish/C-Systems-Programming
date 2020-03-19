@@ -73,37 +73,12 @@ void *sf_malloc(size_t size) {
     sf_block *all_blo = ret_free(blocksize); //retrieves the block to work on
 
     if (((all_blo -> header & BLOCK_SIZE_MASK)/64) == blocksize){
-        
+        all_blo -> header = (all_blo -> header) | THIS_BLOCK_ALLOCATED;
+        return all_blo;
+    } else {
+        all_blo = split(all_blo, blocksize);
+        return all_blo;
     }
-
-
-
-
-
-
-    
-
-    //testing code
-    // sf_block testblock;
-    // testblock.header = 3000;
-    // sf_free_list_heads[8].body.links.next = &testblock;
-    // sf_block *test2 = ret_free(8);
-    // printf("%lu", test2 -> header);
-
-
-
-    
-    
-
-
-
-
-
-
-
-
-
-    return NULL;
 }
 
 void sf_free(void *pp) {
