@@ -12,6 +12,7 @@
 //Headers For Helpers
 sf_block* ret_free(size_t size);
 sf_block *split(sf_block *tosplit, size_t size);
+sf_block *ext_wil(sf_block *wil, size_t size);
 
 //Personal Declarations
 static int fibonacci[] = {1,2,3,5,8,13,21,34,35,0};
@@ -26,7 +27,10 @@ void *sf_malloc(size_t size) {
 
     static int heap_init = 0;
     int blocksize = 0;
-    blocksize += (size + (64 - (size%64)))/64; //for memory alignment
+    if (size%64 != 0){
+        blocksize += (size + (64 - (size%64)))/64; //for memory alignment
+    }
+
 
     if (heap_init == 0){
         //initialize heap (needed?)
@@ -74,9 +78,10 @@ void *sf_malloc(size_t size) {
     sf_block *all_blo = ret_free(blocksize); //retrieves the block to work on
 
     if (((all_blo -> header & BLOCK_SIZE_MASK)/64) == blocksize){
-        (all_blo -> body.links.prev) -> body.links.next = all_blo -> body.links.next; //removing from the doubly linked
-        (all_blo -> body.links.next) -> body.links.prev = all_blo -> body.links.prev; 
-        all_blo -> header = (all_blo -> header) | THIS_BLOCK_ALLOCATED;
+        // (all_blo -> body.links.prev) -> body.links.next = all_blo -> body.links.next; //removing from the doubly linked
+        // (all_blo -> body.links.next) -> body.links.prev = all_blo -> body.links.prev; 
+        // all_blo -> header = (all_blo -> header) | THIS_BLOCK_ALLOCATED; 
+        //the stuff above is actually doing it twice, double check it when you get there
         return all_blo;
     } else {
         all_blo = split(all_blo, blocksize);
@@ -173,7 +178,11 @@ sf_block *split(sf_block *tosplit, size_t size){
     sf_block *newblock = (sf_block *) temp; //creating the pointer for it
 
     newblock -> header = dif | PREV_BLOCK_ALLOCATED;
-    dif = (dif + (64 - (dif%64)))/64;
+    if (dif%64 != 0){
+        dif = (dif + (64 - (dif%64)))/64; //if it isn't multiple, round it up
+    } else {
+        dif = dif/64; //just divide by 64 if multiple of 64
+    }
 
     for (int i = 0; i < 9; i++){
         if ( dif <= fibonacci[i] || (is_wil == 0 && i == 8)){
@@ -197,4 +206,8 @@ sf_block *split(sf_block *tosplit, size_t size){
     }
 
     return tosplit;
+}
+
+sf_block *ext_wil(sf_block *wil, size_t size){
+    return wil;
 }
