@@ -55,8 +55,9 @@ void *sf_malloc(size_t size) {
         epilogue -> header = THIS_BLOCK_ALLOCATED;
 
         stahep += 64; //to point to end of prologue
-        sf_block* srt_wil = (sf_block *) stahep; //start of wilderness block
+        sf_block* srt_wil = (sf_block *) stahep; //start of wilderness block and inserting it
         sf_free_list_heads[9].body.links.next = srt_wil;
+        sf_free_list_heads[9].body.links.prev = srt_wil;
 
         srt_wil->body.links.prev = &sf_free_list_heads[9]; //maintain doubly linked
         srt_wil->body.links.next = &sf_free_list_heads[9];
@@ -73,6 +74,8 @@ void *sf_malloc(size_t size) {
     sf_block *all_blo = ret_free(blocksize); //retrieves the block to work on
 
     if (((all_blo -> header & BLOCK_SIZE_MASK)/64) == blocksize){
+        (all_blo -> body.links.prev) -> body.links.next = all_blo -> body.links.next; //removing from the doubly linked
+        (all_blo -> body.links.next) -> body.links.prev = all_blo -> body.links.prev; 
         all_blo -> header = (all_blo -> header) | THIS_BLOCK_ALLOCATED;
         return all_blo;
     } else {
@@ -138,7 +141,9 @@ sf_block *ret_free(size_t size){
 sf_block *split(sf_block *tosplit, size_t size){
 
     int is_wil = 0;
-    if (tosplit -> body.links.next == epilogue){
+    char *temp = (char *) tosplit + (tosplit -> header & BLOCK_SIZE_MASK); //temp char ptr
+    sf_block* tempblock; //temp block ptr
+    if ( (sf_block *) temp == epilogue){
         is_wil = 1;
     }
 
@@ -149,44 +154,46 @@ sf_block *split(sf_block *tosplit, size_t size){
 
     //if given an alloced block, unsets the next block's prevalloc if resize is smaller
     if ((size * 64) < blocksize && (tosplit -> header & THIS_BLOCK_ALLOCATED) == 1){
-        nxthed -> header = (nxthed -> header) & (~PREV_BLOCK_ALLOCATED);
+        temp = (char *) tosplit + (tosplit -> header & BLOCK_SIZE_MASK);
+        tempblock = (sf_block *) temp;
+        tempblock -> header = (tempblock -> header) & (~PREV_BLOCK_ALLOCATED);
     }
 
     int dif; //difference in actual bytes
     dif = blocksize - (size * 64); //getting the difference in bytes
-    //setting new size
-    tosplit -> header = (size * 64) | THIS_BLOCK_ALLOCATED; 
 
-    //if prev block is allocated, update header for this block
-    if ((prvhed -> header & THIS_BLOCK_ALLOCATED) == 1){
-        tosplit -> header = (tosplit -> header) | PREV_BLOCK_ALLOCATED;
-    }
+    tosplit -> header = (tosplit -> header & PREV_BLOCK_ALLOCATED) | THIS_BLOCK_ALLOCATED; // preserve the prev alloc and set this to alloc
+    
+    tosplit -> header = tosplit -> header | (size*64); //setting new size
 
-    char *newstart = (char *) tosplit + dif; //arithmetic to get to new spot
-    sf_block *newblock = (sf_block *) newstart; //creating the pointer for it
+    nxthed -> body.links.prev = tosplit -> body.links.prev; //removing from doubly
+    prvhed -> body.links.next = tosplit -> body.links.next;
+
+    temp = (char *) tosplit + (tosplit -> header & BLOCK_SIZE_MASK); //arithmetic to get to new spot
+    sf_block *newblock = (sf_block *) temp; //creating the pointer for it
 
     newblock -> header = dif | PREV_BLOCK_ALLOCATED;
+    dif = (dif + (64 - (dif%64)))/64;
 
-    sf_block *to_add;
     for (int i = 0; i < 9; i++){
-        if ((dif/64) <= fibonacci[i] || is_wil == 0){
+        if ( dif <= fibonacci[i] || (is_wil == 0 && i == 8)){
 
-            to_add = sf_free_list_heads + i; //gets you to current index
-            newblock -> body.links.prev = to_add -> body.links.prev; //insert into doubly
-            newblock -> body.links.next = to_add;
-            (to_add -> body.links.prev) -> body.links.next = newblock;
-            to_add -> body.links.prev = newblock;
+            tempblock = sf_free_list_heads + i; //gets you to current index
+            newblock -> body.links.prev = tempblock -> body.links.prev; //insert into doubly
+            newblock -> body.links.next = tempblock;
+            (tempblock -> body.links.prev) -> body.links.next = newblock;
+            tempblock -> body.links.prev = newblock;
     
         }
     }
 
     //if it is the wilderness
     if (is_wil == 1){
-        to_add = sf_free_list_heads + 9; //gets you to current index
-            newblock -> body.links.prev = to_add -> body.links.prev; //insert into doubly
-            newblock -> body.links.next = to_add;
-            (to_add -> body.links.prev) -> body.links.next = newblock;
-            to_add -> body.links.prev = newblock;
+            tempblock = sf_free_list_heads + 9; //gets you to current index
+            newblock -> body.links.prev = tempblock -> body.links.prev; //insert into doubly
+            newblock -> body.links.next = tempblock;
+            (tempblock -> body.links.prev) -> body.links.next = newblock;
+            tempblock -> body.links.prev = newblock;
     }
 
     return tosplit;
