@@ -48,7 +48,6 @@ void *sf_malloc(size_t size) {
         prologue = (sf_block *) stahep;
 
         prologue -> header = 64 | THIS_BLOCK_ALLOCATED | PREV_BLOCK_ALLOCATED; //setting header and footer
-        prologue -> prev_footer = prologue -> header;
 
         epilogue = sf_mem_end(); //getting addr at end of heap
         char *endhep = (char *) epilogue;
@@ -60,6 +59,7 @@ void *sf_malloc(size_t size) {
 
         stahep += 64; //to point to end of prologue
         sf_block* srt_wil = (sf_block *) stahep; //start of wilderness block and inserting it
+        srt_wil -> prev_footer = prologue -> header;
         sf_free_list_heads[9].body.links.next = srt_wil;
         sf_free_list_heads[9].body.links.prev = srt_wil;
 
@@ -70,7 +70,7 @@ void *sf_malloc(size_t size) {
         wil_siz = wil_siz | PREV_BLOCK_ALLOCATED;
         srt_wil->header = wil_siz;
 
-        epilogue -> header =  (epilogue -> header) | PREV_BLOCK_ALLOCATED; //it's the wilderness
+        epilogue -> prev_footer = srt_wil -> header; //wilderness' footer is epilogue's prev footer
 
         heap_init = 1;
     }
@@ -83,7 +83,7 @@ void *sf_malloc(size_t size) {
         (all_blo -> body.links.prev) -> body.links.next = all_blo -> body.links.next; //removing from the doubly linked
         (all_blo -> body.links.next) -> body.links.prev = all_blo -> body.links.prev; 
         all_blo -> header = (all_blo -> header) | THIS_BLOCK_ALLOCATED;
-        temp = (char *) all_blo + (all_blo -> header & BLOCK_SIZE_MASK);
+        temp = (char *) all_blo + (all_blo -> header & BLOCK_SIZE_MASK); //getting the next block in memory
         tempblock = (sf_block *) temp;
         tempblock -> header = tempblock -> header | PREV_BLOCK_ALLOCATED; //setting allocation status of next block 
     } else {
@@ -101,6 +101,39 @@ void *sf_malloc(size_t size) {
 }
 
 void sf_free(void *pp) {
+
+    // if (pp == NULL){
+    //     abort();
+    // }
+
+    // int error = 0;
+    // sf_block *to_free = (sf_block *) pp;
+
+    // if ((to_free -> header & THIS_BLOCK_ALLOCATED))
+
+
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     return;
 }
 
@@ -149,18 +182,19 @@ sf_block *ret_free(size_t size){
         }
 
     //if wilderness is required and there is no wilderness
-    sf_block *new_wil = sf_free_list_heads[9].body.links.next;
-    block = &sf_free_list_heads[9];
+    sf_block *new_wil = sf_free_list_heads[9].body.links.next; //new wilderness
+    block = &sf_free_list_heads[9]; //sentinel node for wilderness
     char *temp;
     if (block -> body.links.next == block){
         sf_mem_grow();
         new_wil = epilogue;
-        new_wil -> header = 4096 | (epilogue -> header & PREV_BLOCK_ALLOCATED); //retain prev alloc status
+        new_wil -> header = new_wil -> header | 4096; //a new page in memory
         new_wil -> header = new_wil -> header & (~THIS_BLOCK_ALLOCATED); //unset alloc status
         temp = sf_mem_end();
         temp -= 16;
         epilogue = (sf_block *) temp;
         epilogue -> header = epilogue -> header | THIS_BLOCK_ALLOCATED;
+        epilogue -> prev_footer = new_wil -> header;
         //add back into doubly
         block -> body.links.next = new_wil;
         block -> body.links.prev = new_wil;
@@ -179,6 +213,7 @@ sf_block *split(sf_block *tosplit, size_t size){
     int is_wil = 0;
     char *temp = (char *) tosplit + (tosplit -> header & BLOCK_SIZE_MASK); //temp char ptr
     sf_block* tempblock; //temp block ptr
+    
     if ( (sf_block *) temp == epilogue){
         is_wil = 1;
     }
@@ -198,7 +233,7 @@ sf_block *split(sf_block *tosplit, size_t size){
     int dif; //difference in actual bytes
     dif = blocksize - (size * 64); //getting the difference in bytes
 
-    tosplit -> header = (tosplit -> header & PREV_BLOCK_ALLOCATED) | THIS_BLOCK_ALLOCATED; // preserve the prev alloc and set this to alloc
+    tosplit -> header = (tosplit -> header ) | THIS_BLOCK_ALLOCATED; // preserve the prev alloc and set this to alloc
     
     tosplit -> header = tosplit -> header | (size*64); //setting new size
 
@@ -219,10 +254,10 @@ sf_block *split(sf_block *tosplit, size_t size){
         if ( dif <= fibonacci[i] || (is_wil == 0 && i == 8)){
 
             tempblock = sf_free_list_heads + i; //gets you to current index
-            newblock -> body.links.prev = tempblock -> body.links.prev; //insert into doubly
-            newblock -> body.links.next = tempblock;
-            (tempblock -> body.links.prev) -> body.links.next = newblock;
-            tempblock -> body.links.prev = newblock;
+            newblock -> body.links.prev = tempblock -> body.links.next; //insert into beginning of doubly
+            newblock -> body.links.prev = tempblock;
+            (tempblock -> body.links.next) -> body.links.prev = newblock;
+            tempblock -> body.links.next = newblock;
     
         }
     }
@@ -235,6 +270,11 @@ sf_block *split(sf_block *tosplit, size_t size){
             (tempblock -> body.links.prev) -> body.links.next = newblock;
             tempblock -> body.links.prev = newblock;
     }
+    
+    //setting the footer of the new block
+    temp = (char *) newblock + (newblock -> header & BLOCK_SIZE_MASK);
+    tempblock = (sf_block *) temp;
+    tempblock -> prev_footer = newblock -> header;
 
     return tosplit;
 }
@@ -261,6 +301,8 @@ sf_block *ext_wil(sf_block *wil, size_t size){
 
     int new_siz = (epilogue - wil) * (sizeof(sf_block)); //finding the difference
     wil -> header = new_siz | (wil -> header & PREV_BLOCK_ALLOCATED); //retain prev alloc status
+
+    epilogue -> prev_footer = wil -> header; 
 
     return wil;
 }
