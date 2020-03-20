@@ -76,17 +76,28 @@ void *sf_malloc(size_t size) {
     }
 
     sf_block *all_blo = ret_free(blocksize); //retrieves the block to work on
+    sf_block *tempblock;
+    char *temp;
 
     if (((all_blo -> header & BLOCK_SIZE_MASK)/64) == blocksize){
-        // (all_blo -> body.links.prev) -> body.links.next = all_blo -> body.links.next; //removing from the doubly linked
-        // (all_blo -> body.links.next) -> body.links.prev = all_blo -> body.links.prev; 
-        // all_blo -> header = (all_blo -> header) | THIS_BLOCK_ALLOCATED; 
-        //the stuff above is actually doing it twice, double check it when you get there
-        return all_blo;
+        (all_blo -> body.links.prev) -> body.links.next = all_blo -> body.links.next; //removing from the doubly linked
+        (all_blo -> body.links.next) -> body.links.prev = all_blo -> body.links.prev; 
+        all_blo -> header = (all_blo -> header) | THIS_BLOCK_ALLOCATED;
+        temp = (char *) all_blo + (all_blo -> header & BLOCK_SIZE_MASK);
+        tempblock = (sf_block *) temp;
+        tempblock -> header = tempblock -> header | PREV_BLOCK_ALLOCATED; //setting allocation status of next block 
     } else {
         all_blo = split(all_blo, blocksize);
-        return all_blo;
     }
+
+    //if wilderness is zero, destroy it
+    tempblock = &sf_free_list_heads[9];
+    if ((tempblock -> body.links.next -> header & BLOCK_SIZE_MASK) == 0){
+        tempblock -> body.links.next = tempblock;
+        tempblock -> body.links.prev = tempblock;
+    }
+
+    return all_blo;
 }
 
 void sf_free(void *pp) {
@@ -103,7 +114,7 @@ void *sf_memalign(size_t size, size_t align) {
 
 //Helper Methods
 
-//Helper Method To Traverse Array
+//Helper Methods For Malloc
 
 sf_block *ret_free(size_t size){
 
@@ -137,7 +148,27 @@ sf_block *ret_free(size_t size){
         counter = counter->body.links.next;
         }
 
-        return sf_free_list_heads[9].body.links.next; //if it gets past prev loop you need to allocate from wilderness
+    //if wilderness is required and there is no wilderness
+    sf_block *new_wil = sf_free_list_heads[9].body.links.next;
+    block = &sf_free_list_heads[9];
+    char *temp;
+    if (block -> body.links.next == block){
+        sf_mem_grow();
+        new_wil = epilogue;
+        new_wil -> header = 4096 | (epilogue -> header & PREV_BLOCK_ALLOCATED); //retain prev alloc status
+        new_wil -> header = new_wil -> header & (~THIS_BLOCK_ALLOCATED); //unset alloc status
+        temp = sf_mem_end();
+        temp -= 16;
+        epilogue = (sf_block *) temp;
+        epilogue -> header = epilogue -> header | THIS_BLOCK_ALLOCATED;
+        //add back into doubly
+        block -> body.links.next = new_wil;
+        block -> body.links.prev = new_wil;
+    } else {
+        ext_wil(new_wil, (size*64));
+    }
+
+        return new_wil; //if it gets past prev loop you need to allocate from wilderness
 
 }
 
@@ -209,5 +240,29 @@ sf_block *split(sf_block *tosplit, size_t size){
 }
 
 sf_block *ext_wil(sf_block *wil, size_t size){
+
+    size_t crt_siz = wil -> header & BLOCK_SIZE_MASK;
+    int extend = 0;
+    char *temp;
+
+    while (crt_siz < size){
+        crt_siz += 4096;
+        extend++;
+    }
+
+    while (extend > 0){
+        sf_mem_grow();
+    }
+
+    temp = sf_mem_end();
+    temp -= 16;
+    epilogue = (sf_block *) temp;
+    epilogue -> header = epilogue -> header | THIS_BLOCK_ALLOCATED;
+
+    int new_siz = (epilogue - wil) * (sizeof(sf_block)); //finding the difference
+    wil -> header = new_siz | (wil -> header & PREV_BLOCK_ALLOCATED); //retain prev alloc status
+
     return wil;
 }
+
+//
