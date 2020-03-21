@@ -9,6 +9,9 @@
 #include "debug.h"
 #include "sfmm.h"
 
+sf_block *firstblock;
+int isfirst = 0;
+
 //Headers For Helpers
 sf_block* ret_free(size_t size);
 sf_block *split(sf_block *tosplit, size_t size);
@@ -95,7 +98,7 @@ void *sf_malloc(size_t size) {
         tempblock -> body.links.prev = tempblock;
     }
 
-    return all_blo;
+    return all_blo ->body.payload;
 }
 
 void sf_free(void *pp) {
@@ -116,7 +119,7 @@ void sf_free(void *pp) {
     }
 
     temp = (char *) sf_mem_start();
-    temp += 128; //end of prologue
+    temp += 64 + 56; //end of prologue
     sf_block *prologue = (sf_block *) temp;
 
     if (to_free < prologue || to_free > epilogue){
@@ -345,9 +348,14 @@ sf_block *split(sf_block *tosplit, size_t size){
     int dif; //difference in actual bytes
     dif = blocksize - (size * 64); //getting the difference in bytes
 
-    tosplit -> header = (tosplit -> header ) | THIS_BLOCK_ALLOCATED; // preserve the prev alloc and set this to alloc
+    tosplit -> header = (tosplit -> header & PREV_BLOCK_ALLOCATED ) | THIS_BLOCK_ALLOCATED; // preserve the prev alloc and set this to alloc
     
     tosplit -> header = tosplit -> header | (size*64); //setting new size
+
+    if (isfirst == 0){
+        firstblock = tosplit;
+        isfirst++;
+    }
 
     nxthed -> body.links.prev = tosplit -> body.links.prev; //removing from doubly
     prvhed -> body.links.next = tosplit -> body.links.next;
@@ -363,8 +371,6 @@ sf_block *split(sf_block *tosplit, size_t size){
         dif = dif/64;
     }
     
-    
-
     for (int i = 0; i < 9; i++){
         if ( dif <= fibonacci[i] || (is_wil == 0 && i == 8)){
 
