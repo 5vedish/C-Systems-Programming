@@ -27,9 +27,7 @@ void *sf_malloc(size_t size) {
 
     static int heap_init = 0;
     int blocksize = 0;
-    if (size%64 != 0){
         blocksize += (size + (64 - (size%64)))/64; //for memory alignment
-    }
 
 
     if (heap_init == 0){
@@ -102,37 +100,151 @@ void *sf_malloc(size_t size) {
 
 void sf_free(void *pp) {
 
-    // if (pp == NULL){
-    //     abort();
+    char *temp;
+    sf_block *tempblock;
+
+    //handle all the invalid pointer stuff first
+    if (pp == NULL){
+        abort();
+    }
+
+    int error = 0;
+    sf_block *to_free = (sf_block *) pp;
+
+    if ((to_free -> header & THIS_BLOCK_ALLOCATED) != THIS_BLOCK_ALLOCATED){
+        error = 1;
+    }
+
+    temp = (char *) sf_mem_start();
+    temp += 128; //end of prologue
+    sf_block *prologue = (sf_block *) temp;
+
+    if (to_free < prologue || to_free > epilogue){
+        error = 1;
+    }
+
+    // if (((to_free -> header & BLOCK_SIZE_MASK) - sizeof(sf_header))%64 != 0){
+    //     error = 1;
     // }
 
-    // int error = 0;
-    // sf_block *to_free = (sf_block *) pp;
+    if ((to_free -> header & PREV_BLOCK_ALLOCATED) == 0 && (to_free -> prev_footer & THIS_BLOCK_ALLOCATED) != 0){
+        error = 1;
+    }
 
-    // if ((to_free -> header & THIS_BLOCK_ALLOCATED))
+    if (error ==  1){
+        abort();
+    }
+
+    //coalesce first
+
+    int prev_free = 1;
+    int next_free = 1;
+    sf_block *prv_blc;
+    sf_block *nxt_blc;
+    sf_block *nxt_nxt;
+    sf_block* to_put;
+    size_t new_siz;
+
+    temp = (char *) to_free - (to_free -> prev_footer & BLOCK_SIZE_MASK);
+    prv_blc = (sf_block *) temp;
+
+    if ((to_free -> header & PREV_BLOCK_ALLOCATED) == PREV_BLOCK_ALLOCATED){
+        prev_free = 0;
+    }
+
+    temp = (char *) to_free + (to_free -> header & BLOCK_SIZE_MASK);
+    nxt_blc = (sf_block *) temp;
+
+    if ((nxt_blc -> header & THIS_BLOCK_ALLOCATED) == THIS_BLOCK_ALLOCATED){
+        next_free = 0;
+    }
+
+    //get the second block after to free
+    if (next_free == 1){
+        temp = (char *) nxt_blc + (nxt_blc -> header & BLOCK_SIZE_MASK);
+        nxt_nxt = (sf_block *) temp;
+    }
 
 
+    //1.if behind and front allocated
+    //2.if behind allocated and front free
+    //3.if behind free and front allocated
+    //4.if behind and front free
+    if (prev_free == 0 && next_free == 0){
+
+        to_free -> header = to_free -> header & (~THIS_BLOCK_ALLOCATED); //unset the block alloc status
+        nxt_blc -> header = nxt_blc -> header & (~PREV_BLOCK_ALLOCATED); //unset the prev alloc for next block
+        nxt_blc -> prev_footer = to_free -> header; //setting the freed block's footer
+
+        to_put = to_free;
+
+    } else if (prev_free == 0 && next_free == 1){
+
+        (nxt_blc -> body.links.prev) -> body.links.next = nxt_blc -> body.links.next; //remove from doubly
+        (nxt_blc -> body.links.next) -> body.links.prev = nxt_blc -> body.links.prev;
+
+        new_siz = (to_free -> header & BLOCK_SIZE_MASK) + (nxt_blc -> header & BLOCK_SIZE_MASK); //getting new size
+        to_free -> header = new_siz | (to_free -> header & PREV_BLOCK_ALLOCATED); //changing the header
+
+        nxt_nxt -> prev_footer = to_free -> header; //setting footer for freed block
+        to_put = to_free;
+
+    } else if (prev_free == 1 && next_free == 0){
+
+        (prv_blc -> body.links.prev) -> body.links.next = prv_blc -> body.links.next; //remove from doubly
+        (prv_blc -> body.links.next) -> body.links.prev = prv_blc -> body.links.prev;
+
+        new_siz = (prv_blc -> header & BLOCK_SIZE_MASK) + (to_free -> header & BLOCK_SIZE_MASK); //getting new size
+        prv_blc -> header = new_siz | (prv_blc -> header & PREV_BLOCK_ALLOCATED); //changing the header
+
+        nxt_blc -> prev_footer = prv_blc -> header;
+        to_put = prv_blc;
+
+    } else {
+
+        (nxt_blc -> body.links.prev) -> body.links.next = nxt_blc -> body.links.next; //remove both from doubly
+        (nxt_blc -> body.links.next) -> body.links.prev = nxt_blc -> body.links.prev;
+        (prv_blc -> body.links.prev) -> body.links.next = prv_blc -> body.links.next; 
+        (prv_blc -> body.links.next) -> body.links.prev = prv_blc -> body.links.prev;
+
+        new_siz = (prv_blc -> header & BLOCK_SIZE_MASK) + (to_free -> header & BLOCK_SIZE_MASK) + (nxt_blc -> header & BLOCK_SIZE_MASK);
+        prv_blc -> header = new_siz | (prv_blc -> header & PREV_BLOCK_ALLOCATED); //changing the header
+
+        nxt_nxt -> prev_footer = prv_blc -> header;
+        to_put = prv_blc;
+
+    }
+
+    //free the block by putting it in list
+
+    size_t fit = to_put -> header & BLOCK_SIZE_MASK;
+    if (fit%64 != 0){
+        fit = (fit + (64 - (fit%64)))/64; //if it isn't multiple, round it up
+    } else {
+        fit = fit/64;
+    }
+
+    for (int i = 0; i < 9; i++){
+        if ( fit <= fibonacci[i] || (i == 8)){
+
+            tempblock = sf_free_list_heads + i; //gets you to current index
+            to_put -> body.links.prev = tempblock -> body.links.next; //insert into beginning of doubly
+            to_put -> body.links.prev = tempblock;
+            (tempblock -> body.links.next) -> body.links.prev = to_put;
+            tempblock -> body.links.next = to_put;
     
+        }
+    }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+    if (next_free == 1){
+        if (nxt_nxt == epilogue){
+            tempblock = sf_free_list_heads + 9; //gets you to current index
+            to_put -> body.links.prev = tempblock -> body.links.prev; //insert into doubly
+            to_put -> body.links.next = tempblock;
+            (tempblock -> body.links.prev) -> body.links.next = to_put;
+            tempblock -> body.links.prev = to_put;
+        }
+    }
 
     return;
 }
@@ -198,7 +310,7 @@ sf_block *ret_free(size_t size){
         //add back into doubly
         block -> body.links.next = new_wil;
         block -> body.links.prev = new_wil;
-    } else {
+    } else if ((new_wil -> header & BLOCK_SIZE_MASK) < (size*64))  {
         ext_wil(new_wil, (size*64));
     }
 
@@ -244,11 +356,14 @@ sf_block *split(sf_block *tosplit, size_t size){
     sf_block *newblock = (sf_block *) temp; //creating the pointer for it
 
     newblock -> header = dif | PREV_BLOCK_ALLOCATED;
+    
     if (dif%64 != 0){
         dif = (dif + (64 - (dif%64)))/64; //if it isn't multiple, round it up
     } else {
-        dif = dif/64; //just divide by 64 if multiple of 64
+        dif = dif/64;
     }
+    
+    
 
     for (int i = 0; i < 9; i++){
         if ( dif <= fibonacci[i] || (is_wil == 0 && i == 8)){
@@ -270,7 +385,7 @@ sf_block *split(sf_block *tosplit, size_t size){
             (tempblock -> body.links.prev) -> body.links.next = newblock;
             tempblock -> body.links.prev = newblock;
     }
-    
+
     //setting the footer of the new block
     temp = (char *) newblock + (newblock -> header & BLOCK_SIZE_MASK);
     tempblock = (sf_block *) temp;
