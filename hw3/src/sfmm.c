@@ -9,8 +9,7 @@
 #include "debug.h"
 #include "sfmm.h"
 
-sf_block *firstblock;
-int isfirst = 0;
+sf_block *apro;
 
 //Headers For Helpers
 sf_block* ret_free(size_t size);
@@ -35,7 +34,6 @@ void *sf_malloc(size_t size) {
 
     if (heap_init == 0){
         //initialize heap (needed?)
-        sf_mem_init();
 
         for (int i = 0; i < 10; i++){ //initializes the sentinel nodes
             sf_free_list_heads[i].body.links.next = &sf_free_list_heads[i];
@@ -45,8 +43,10 @@ void *sf_malloc(size_t size) {
         sf_block *prologue = sf_mem_grow(); //grab new page
         char *stahep = (char *) prologue; //char ptr for arithmetic
 
-        stahep += 56; //7 unused rows
+        stahep += 48; //7 unused rows and overlaps with prologue prev_footer
         prologue = (sf_block *) stahep;
+
+        apro = prologue;
 
         prologue -> header = 64 | THIS_BLOCK_ALLOCATED | PREV_BLOCK_ALLOCATED; //setting header and footer
 
@@ -111,6 +111,7 @@ void sf_free(void *pp) {
         abort();
     }
 
+    pp -= 16;
     int error = 0;
     sf_block *to_free = (sf_block *) pp;
 
@@ -119,7 +120,7 @@ void sf_free(void *pp) {
     }
 
     temp = (char *) sf_mem_start();
-    temp += 64 + 56; //end of prologue
+    temp += 64 + 48; //end of prologue
     sf_block *prologue = (sf_block *) temp;
 
     if (to_free < prologue || to_free > epilogue){
@@ -231,11 +232,11 @@ void sf_free(void *pp) {
         if ( fit <= fibonacci[i] || (i == 8)){
 
             tempblock = sf_free_list_heads + i; //gets you to current index
-            to_put -> body.links.prev = tempblock -> body.links.next; //insert into beginning of doubly
+            to_put -> body.links.next = tempblock -> body.links.next; //insert into beginning of doubly
             to_put -> body.links.prev = tempblock;
             (tempblock -> body.links.next) -> body.links.prev = to_put;
             tempblock -> body.links.next = to_put;
-    
+            break;
         }
     }
 
@@ -351,11 +352,6 @@ sf_block *split(sf_block *tosplit, size_t size){
     tosplit -> header = (tosplit -> header & PREV_BLOCK_ALLOCATED ) | THIS_BLOCK_ALLOCATED; // preserve the prev alloc and set this to alloc
     
     tosplit -> header = tosplit -> header | (size*64); //setting new size
-
-    if (isfirst == 0){
-        firstblock = tosplit;
-        isfirst++;
-    }
 
     nxthed -> body.links.prev = tosplit -> body.links.prev; //removing from doubly
     prvhed -> body.links.next = tosplit -> body.links.next;
