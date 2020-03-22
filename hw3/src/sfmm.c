@@ -143,6 +143,7 @@ void sf_free(void *pp) {
 
     int prev_free = 1;
     int next_free = 1;
+    int is_wil = 0;
     sf_block *prv_blc;
     sf_block *nxt_blc;
     sf_block *nxt_nxt;
@@ -167,6 +168,10 @@ void sf_free(void *pp) {
     if (next_free == 1){
         temp = (char *) nxt_blc + (nxt_blc -> header & BLOCK_SIZE_MASK);
         nxt_nxt = (sf_block *) temp;
+    }
+
+    if (nxt_nxt == epilogue){
+        is_wil = 1;
     }
 
 
@@ -229,7 +234,7 @@ void sf_free(void *pp) {
     }
 
     for (int i = 0; i < 9; i++){
-        if ( fit <= fibonacci[i] || (i == 8)){
+        if ( fit <= fibonacci[i] || (i == 8 && is_wil == 0)){
 
             tempblock = sf_free_list_heads + i; //gets you to current index
             to_put -> body.links.next = tempblock -> body.links.next; //insert into beginning of doubly
@@ -240,14 +245,14 @@ void sf_free(void *pp) {
         }
     }
 
-    if (next_free == 1){
-        if (nxt_nxt == epilogue){
-            tempblock = sf_free_list_heads + 9; //gets you to current index
-            to_put -> body.links.prev = tempblock -> body.links.prev; //insert into doubly
-            to_put -> body.links.next = tempblock;
-            (tempblock -> body.links.prev) -> body.links.next = to_put;
-            tempblock -> body.links.prev = to_put;
-        }
+    if (is_wil == 1){
+        
+        tempblock = sf_free_list_heads + 9; //gets you to current index
+        to_put -> body.links.prev = tempblock -> body.links.prev; //insert into doubly
+        to_put -> body.links.next = tempblock;
+        (tempblock -> body.links.prev) -> body.links.next = to_put;
+        tempblock -> body.links.prev = to_put;
+        
     }
 
     return;
@@ -371,11 +376,11 @@ sf_block *split(sf_block *tosplit, size_t size){
         if ( dif <= fibonacci[i] || (is_wil == 0 && i == 8)){
 
             tempblock = sf_free_list_heads + i; //gets you to current index
-            newblock -> body.links.prev = tempblock -> body.links.next; //insert into beginning of doubly
+            newblock -> body.links.next = tempblock -> body.links.next; //insert into beginning of doubly
             newblock -> body.links.prev = tempblock;
             (tempblock -> body.links.next) -> body.links.prev = newblock;
             tempblock -> body.links.next = newblock;
-    
+            break;
         }
     }
 
