@@ -9,8 +9,6 @@
 #include "debug.h"
 #include "sfmm.h"
 
-sf_block *apro;
-
 //Headers For Helpers
 sf_block* ret_free(size_t size);
 sf_block *split(sf_block *tosplit, size_t size);
@@ -45,8 +43,6 @@ void *sf_malloc(size_t size) {
 
         stahep += 48; //7 unused rows and overlaps with prologue prev_footer
         prologue = (sf_block *) stahep;
-
-        apro = prologue;
 
         prologue -> header = 64 | THIS_BLOCK_ALLOCATED | PREV_BLOCK_ALLOCATED; //setting header and footer
 
@@ -414,6 +410,7 @@ sf_block *ext_wil(sf_block *wil, size_t size){
 
     while (extend > 0){
         sf_mem_grow();
+        extend--;
     }
 
     temp = sf_mem_end();
