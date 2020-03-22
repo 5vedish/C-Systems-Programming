@@ -288,12 +288,12 @@ sf_block *ret_free(size_t size){
    
     sf_block *counter = sf_free_list_heads+8; //gets me to the ninth index of free list array
 
-        while (counter->body.links.next != counter){
+        while (counter->body.links.next != &sf_free_list_heads[8]){
 
-            cot_siz = ((counter -> header) & BLOCK_SIZE_MASK)/64;
+            cot_siz = ((counter->body.links.next -> header) & BLOCK_SIZE_MASK)/64;
             
             if (cot_siz >= size){ //if a block greater than 34 can still hold this
-                return counter;
+                return counter->body.links.next;
             }
         counter = counter->body.links.next;
         }
@@ -315,7 +315,8 @@ sf_block *ret_free(size_t size){
         //add back into doubly
         block -> body.links.next = new_wil;
         block -> body.links.prev = new_wil;
-    } else if ((new_wil -> header & BLOCK_SIZE_MASK) < (size*64))  {
+    } 
+     if ((new_wil -> header & BLOCK_SIZE_MASK) < (size*64))  {
         ext_wil(new_wil, (size*64));
     }
 

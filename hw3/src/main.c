@@ -31,7 +31,15 @@ int main(int argc, char const *argv[]) {
     printf("%f\n", *ptr2);
     printf("%f\n", *ptr3);
 
+    sf_free(ptr);
+    sf_free(ptr3);
+
+    double* ptr4 = sf_malloc(2000);
+    *ptr4 = 100;
+
     sf_show_heap();
+
+    printf("%f", *ptr4);
    
 
     
