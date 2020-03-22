@@ -230,7 +230,7 @@ void sf_free(void *pp) {
     }
 
     for (int i = 0; i < 9; i++){
-        if ( fit <= fibonacci[i] || (i == 8 && is_wil == 0)){
+        if ( (fit <= fibonacci[i] && is_wil == 0) || (i == 8 && is_wil == 0)){
 
             tempblock = sf_free_list_heads + i; //gets you to current index
             to_put -> body.links.next = tempblock -> body.links.next; //insert into beginning of doubly
@@ -313,6 +313,8 @@ sf_block *ret_free(size_t size){
         epilogue -> header = epilogue -> header | THIS_BLOCK_ALLOCATED;
         epilogue -> prev_footer = new_wil -> header;
         //add back into doubly
+        new_wil -> body.links.prev = block;
+        new_wil -> body.links.next = block;
         block -> body.links.next = new_wil;
         block -> body.links.prev = new_wil;
     } 
@@ -370,7 +372,7 @@ sf_block *split(sf_block *tosplit, size_t size){
     }
     
     for (int i = 0; i < 9; i++){
-        if ( dif <= fibonacci[i] || (is_wil == 0 && i == 8)){
+        if ( (dif <= fibonacci[i] && is_wil == 0) || (is_wil == 0 && i == 8)){
 
             tempblock = sf_free_list_heads + i; //gets you to current index
             newblock -> body.links.next = tempblock -> body.links.next; //insert into beginning of doubly

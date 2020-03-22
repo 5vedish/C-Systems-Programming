@@ -20,26 +20,26 @@
 int main(int argc, char const *argv[]) {
     sf_mem_init();
 
-    double* ptr = sf_malloc(5000);
+    double* ptr = sf_malloc(3904);
     double* ptr2 = sf_malloc(8);
-    double* ptr3 = sf_malloc(8);
+    // double* ptr3 = sf_malloc(8);
 
     *ptr = 1;
-    *ptr2 = 2;
-    *ptr3 = 3;
+    // *ptr2 = 2;
+    // *ptr3 = 3;
     printf("%f\n", *ptr);
     printf("%f\n", *ptr2);
-    printf("%f\n", *ptr3);
+    // printf("%f\n", *ptr3);
 
-    sf_free(ptr);
-    sf_free(ptr3);
+    // sf_free(ptr);
+    // sf_free(ptr3);
 
-    double* ptr4 = sf_malloc(2000);
-    *ptr4 = 100;
+    // double* ptr4 = sf_malloc(15000);
+    // *ptr4 = 100;
 
     sf_show_heap();
 
-    printf("%f", *ptr4);
+    // printf("%f", *ptr4);
    
 
     
