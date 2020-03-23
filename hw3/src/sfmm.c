@@ -260,7 +260,72 @@ void sf_free(void *pp) {
 }
 
 void *sf_realloc(void *pp, size_t rsize) {
-    return NULL;
+
+    char *temp;
+
+    //handle all the invalid pointer stuff first, just like in free
+    if (pp == NULL){
+        abort();
+    }
+
+    pp -= 16;
+    int error = 0;
+    sf_block *to_rel = (sf_block *) pp; //getting the proper block
+
+    if ((to_rel -> header & THIS_BLOCK_ALLOCATED) != THIS_BLOCK_ALLOCATED){
+        error = 1;
+    }
+
+    temp = (char *) sf_mem_start();
+    temp += 64 + 48; //end of prologue
+    sf_block *prologue = (sf_block *) temp;
+
+    if (to_rel < prologue || to_rel > epilogue){ //if it falls outside the heap
+        error = 1;
+    }
+
+    if ((to_rel -> header & BLOCK_SIZE_MASK)%64 != 0){ //if it's not 64 aligned
+        error = 1;
+    }
+
+    if ((to_rel -> header & PREV_BLOCK_ALLOCATED) == 0 && (to_rel -> prev_footer & THIS_BLOCK_ALLOCATED) != 0){
+        error = 1;
+    }
+
+    if (error ==  1){
+        abort();
+    }
+
+    if (rsize == 0){
+        sf_free(to_rel); //if the new size is 0, just free it
+        return NULL;
+    }
+
+    //if reallocating to larger block
+    if ((to_rel -> header & BLOCK_SIZE_MASK) < rsize){
+        sf_block *lgr_blc = sf_malloc(rsize);
+        memcpy(lgr_blc, to_rel -> body.payload, ((to_rel -> header & BLOCK_SIZE_MASK) - 8));
+        sf_free(to_rel -> body.payload);
+        return lgr_blc;
+    }
+
+     //if the header with payload can fit within a multiple, no need to round up, otherwise account for header
+    if ((rsize+8)%64 != 0){
+        rsize += 8;
+    }
+    
+    rsize = (rsize + (64 - (rsize%64)))/64; //for memory alignment
+
+    //if reallocating to smaller block
+    if ((to_rel -> header & BLOCK_SIZE_MASK) > rsize){
+
+        if ((to_rel -> header & BLOCK_SIZE_MASK) - (rsize + 8) < 64){
+            return to_rel;
+        } else {
+            return split(to_rel, rsize);
+        }   
+    }
+    return to_rel;
 }
 
 void *sf_memalign(size_t size, size_t align) {
@@ -335,25 +400,20 @@ sf_block *ret_free(size_t size){
 //remember to pass in blocksize for size
 sf_block *split(sf_block *tosplit, size_t size){
 
-    int is_wil = 0;
+    int is_wil = 0, is_all = 0;
     char *temp = (char *) tosplit + (tosplit -> header & BLOCK_SIZE_MASK); //temp char ptr
     sf_block* tempblock; //temp block ptr
+
+    if ((tosplit -> header & THIS_BLOCK_ALLOCATED) == 1){ //if it's allocated
+        is_all = 1;
+    }
     
-    if ( (sf_block *) temp == epilogue){
+    if ( (sf_block *) temp == epilogue){ //if it's the wilderness
         is_wil = 1;
     }
 
     
-    sf_block *nxthed = tosplit -> body.links.next;
-    sf_block *prvhed = tosplit -> body.links.prev;
     size_t blocksize = (tosplit->header & BLOCK_SIZE_MASK); //correct size of the block
-
-    //if given an alloced block, unsets the next block's prevalloc if resize is smaller
-    if ((size * 64) < blocksize && (tosplit -> header & THIS_BLOCK_ALLOCATED) == 1){
-        temp = (char *) tosplit + (tosplit -> header & BLOCK_SIZE_MASK);
-        tempblock = (sf_block *) temp;
-        tempblock -> header = (tempblock -> header) & (~PREV_BLOCK_ALLOCATED);
-    }
 
     int dif; //difference in actual bytes
     dif = blocksize - (size * 64); //getting the difference in bytes
@@ -362,8 +422,14 @@ sf_block *split(sf_block *tosplit, size_t size){
     
     tosplit -> header = tosplit -> header | (size*64); //setting new size
 
+
+    if (is_all == 0){ //if free 
+    sf_block *nxthed = tosplit -> body.links.next;
+    sf_block *prvhed = tosplit -> body.links.prev;
     nxthed -> body.links.prev = tosplit -> body.links.prev; //removing from doubly
     prvhed -> body.links.next = tosplit -> body.links.next;
+    }
+    
 
     temp = (char *) tosplit + (tosplit -> header & BLOCK_SIZE_MASK); //arithmetic to get to new spot
     sf_block *newblock = (sf_block *) temp; //creating the pointer for it
@@ -401,6 +467,10 @@ sf_block *split(sf_block *tosplit, size_t size){
     temp = (char *) newblock + (newblock -> header & BLOCK_SIZE_MASK);
     tempblock = (sf_block *) temp;
     tempblock -> prev_footer = newblock -> header;
+
+    if (is_all == 1){
+        tempblock -> header = tempblock -> header & (~PREV_BLOCK_ALLOCATED); //unsetting previous of next block if given block allocated
+    }
 
     return tosplit;
 }
