@@ -123,9 +123,9 @@ void sf_free(void *pp) {
         error = 1;
     }
 
-    // if (((to_free -> header & BLOCK_SIZE_MASK) - sizeof(sf_header))%64 != 0){
-    //     error = 1;
-    // }
+    if ((to_free -> header & BLOCK_SIZE_MASK)%64 != 0){
+        error = 1;
+    }
 
     if ((to_free -> header & PREV_BLOCK_ALLOCATED) == 0 && (to_free -> prev_footer & THIS_BLOCK_ALLOCATED) != 0){
         error = 1;
