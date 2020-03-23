@@ -26,6 +26,11 @@ void *sf_malloc(size_t size) {
     }
 
     static int heap_init = 0;
+    //if the header with payload can fit within a multiple, no need to round up, otherwise account for header
+    if ((size+8)%64 != 0){
+        size += 8;
+    }
+    
     int blocksize = 0;
         blocksize += (size + (64 - (size%64)))/64; //for memory alignment
 
