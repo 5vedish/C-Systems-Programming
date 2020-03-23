@@ -13,6 +13,7 @@
 sf_block* ret_free(size_t size);
 sf_block *split(sf_block *tosplit, size_t size);
 sf_block *ext_wil(sf_block *wil, size_t size);
+void insert(int size, int is_wil, sf_block *insert);
 
 //Personal Declarations
 static int fibonacci[] = {1,2,3,5,8,13,21,34,35,0};
@@ -105,7 +106,6 @@ void *sf_malloc(size_t size) {
 void sf_free(void *pp) {
 
     char *temp;
-    sf_block *tempblock;
 
     //handle all the invalid pointer stuff first
     if (pp == NULL){
@@ -234,27 +234,7 @@ void sf_free(void *pp) {
         fit = fit/64;
     }
 
-    for (int i = 0; i < 9; i++){
-        if ( (fit <= fibonacci[i] && is_wil == 0) || (i == 8 && is_wil == 0)){
-
-            tempblock = sf_free_list_heads + i; //gets you to current index
-            to_put -> body.links.next = tempblock -> body.links.next; //insert into beginning of doubly
-            to_put -> body.links.prev = tempblock;
-            (tempblock -> body.links.next) -> body.links.prev = to_put;
-            tempblock -> body.links.next = to_put;
-            break;
-        }
-    }
-
-    if (is_wil == 1){
-        
-        tempblock = sf_free_list_heads + 9; //gets you to current index
-        to_put -> body.links.prev = tempblock -> body.links.prev; //insert into doubly
-        to_put -> body.links.next = tempblock;
-        (tempblock -> body.links.prev) -> body.links.next = to_put;
-        tempblock -> body.links.prev = to_put;
-        
-    }
+    insert(fit, is_wil, to_put);
 
     return;
 }
@@ -309,20 +289,21 @@ void *sf_realloc(void *pp, size_t rsize) {
         return lgr_blc;
     }
 
-     //if the header with payload can fit within a multiple, no need to round up, otherwise account for header
-    if ((rsize+8)%64 != 0){
-        rsize += 8;
-    }
-    
-    rsize = (rsize + (64 - (rsize%64)))/64; //for memory alignment
-
     //if reallocating to smaller block
     if ((to_rel -> header & BLOCK_SIZE_MASK) > rsize){
 
-        if ((to_rel -> header & BLOCK_SIZE_MASK) - (rsize + 8) < 64){
-            return to_rel;
+        if ((to_rel -> header & BLOCK_SIZE_MASK) - (rsize + 8) <= 64){
+            return to_rel -> body.payload;
         } else {
-            return split(to_rel, rsize);
+
+        //if the header with payload can fit within a multiple, no need to round up, otherwise account for header
+        if ((rsize+8)%64 != 0){
+        rsize += 8;
+            }
+    
+        rsize = (rsize + (64 - (rsize%64)))/64; //for memory alignment
+
+        return split(to_rel, rsize) -> body.payload;
         }   
     }
     return to_rel;
@@ -422,10 +403,9 @@ sf_block *split(sf_block *tosplit, size_t size){
     
     tosplit -> header = tosplit -> header | (size*64); //setting new size
 
-
-    if (is_all == 0){ //if free 
     sf_block *nxthed = tosplit -> body.links.next;
     sf_block *prvhed = tosplit -> body.links.prev;
+    if (is_all == 0){ //if free 
     nxthed -> body.links.prev = tosplit -> body.links.prev; //removing from doubly
     prvhed -> body.links.next = tosplit -> body.links.next;
     }
@@ -441,35 +421,34 @@ sf_block *split(sf_block *tosplit, size_t size){
     } else {
         dif = dif/64;
     }
-    
-    for (int i = 0; i < 9; i++){
-        if ( (dif <= fibonacci[i] && is_wil == 0) || (is_wil == 0 && i == 8)){
 
-            tempblock = sf_free_list_heads + i; //gets you to current index
-            newblock -> body.links.next = tempblock -> body.links.next; //insert into beginning of doubly
-            newblock -> body.links.prev = tempblock;
-            (tempblock -> body.links.next) -> body.links.prev = newblock;
-            tempblock -> body.links.next = newblock;
-            break;
-        }
-    }
-
-    //if it is the wilderness
-    if (is_wil == 1){
-            tempblock = sf_free_list_heads + 9; //gets you to current index
-            newblock -> body.links.prev = tempblock -> body.links.prev; //insert into doubly
-            newblock -> body.links.next = tempblock;
-            (tempblock -> body.links.prev) -> body.links.next = newblock;
-            tempblock -> body.links.prev = newblock;
-    }
-
-    //setting the footer of the new block
     temp = (char *) newblock + (newblock -> header & BLOCK_SIZE_MASK);
     tempblock = (sf_block *) temp;
-    tempblock -> prev_footer = newblock -> header;
 
-    if (is_all == 1){
+    if (is_all == 0 && (tempblock -> header & THIS_BLOCK_ALLOCATED) == 1){
+        insert(dif, is_wil, newblock);
+        tempblock -> prev_footer = newblock -> header; //setting footer of new block
+    }
+
+    if (is_all == 1 && (tempblock -> header & THIS_BLOCK_ALLOCATED) == 1){
+        insert(dif, is_wil, newblock);
+        tempblock -> prev_footer = newblock -> header; //setting footer of new block
         tempblock -> header = tempblock -> header & (~PREV_BLOCK_ALLOCATED); //unsetting previous of next block if given block allocated
+    }
+
+    if (is_all == 1 && (tempblock -> header & THIS_BLOCK_ALLOCATED) == 0){
+        tempblock -> body.links.next -> body.links.prev = tempblock -> body.links.prev; //remove from doubly
+        tempblock ->body.links.prev -> body.links.next = tempblock -> body.links.next;
+
+        blocksize = (newblock -> header & BLOCK_SIZE_MASK) + (tempblock -> header & BLOCK_SIZE_MASK);
+        newblock -> header = blocksize | PREV_BLOCK_ALLOCATED;
+        temp = (char *) newblock + (newblock -> header & BLOCK_SIZE_MASK);
+        tempblock = (sf_block *) temp;
+        tempblock -> prev_footer = newblock -> header; //setting footer of new block
+        if (tempblock == epilogue){
+            is_wil = 1;
+        }
+        insert(blocksize/64, is_wil, newblock);
     }
 
     return tosplit;
@@ -502,6 +481,31 @@ sf_block *ext_wil(sf_block *wil, size_t size){
     epilogue -> prev_footer = wil -> header; 
 
     return wil;
+}
+
+void insert(int size, int is_wil, sf_block *insert){
+    sf_block *tempblock;
+    for (int i = 0; i < 9; i++){
+        if ( (size <= fibonacci[i] && is_wil == 0) || (i == 8 && is_wil == 0)){
+
+            tempblock = sf_free_list_heads + i; //gets you to current index
+            insert -> body.links.next = tempblock -> body.links.next; //insert into beginning of doubly
+            insert -> body.links.prev = tempblock;
+            (tempblock -> body.links.next) -> body.links.prev = insert;
+            tempblock -> body.links.next = insert;
+            break;
+        }
+    }
+
+    if (is_wil == 1){
+        
+        tempblock = sf_free_list_heads + 9; //gets you to current index
+        insert -> body.links.prev = tempblock -> body.links.prev; //insert into doubly
+        insert -> body.links.next = tempblock;
+        (tempblock -> body.links.prev) -> body.links.next = insert;
+        tempblock -> body.links.prev = insert;
+        
+    }
 }
 
 //

@@ -20,16 +20,24 @@
 int main(int argc, char const *argv[]) {
     sf_mem_init();
 
-    void* p = sf_malloc(56);
-    void* p2 = sf_realloc(p, 128);
+    // void* p = sf_malloc(56);
+    // void* p2 = sf_realloc(p, 128);
     
 
-    
-    printf("%p%p", p, p2);
+     void *x = sf_malloc(sizeof(double) * 8);
+	sf_realloc(x, sizeof(int));
+    printf("%p", x);
 
     
 
     sf_show_heap();
+
+    // void *x = sf_malloc(sizeof(int) * 20);
+	// void *y = sf_realloc(x, sizeof(int) * 16);
+
+    printf("%lu", sizeof(int) * 20);
+    printf("%lu", sizeof(int) * 16);
+
 
     
 
