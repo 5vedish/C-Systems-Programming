@@ -8,6 +8,7 @@
 #include <string.h>
 #include "debug.h"
 #include "sfmm.h"
+#include "errno.h"
 
 //Headers For Helpers
 sf_block* ret_free(size_t size);
@@ -37,7 +38,6 @@ void *sf_malloc(size_t size) {
 
 
     if (heap_init == 0){
-        //initialize heap (needed?)
 
         for (int i = 0; i < 10; i++){ //initializes the sentinel nodes
             sf_free_list_heads[i].body.links.next = &sf_free_list_heads[i];
@@ -69,7 +69,7 @@ void *sf_malloc(size_t size) {
         srt_wil->body.links.prev = &sf_free_list_heads[9]; //maintain doubly linked
         srt_wil->body.links.next = &sf_free_list_heads[9];
 
-        int wil_siz = (epilogue - srt_wil) * sizeof(sf_block); //getting size of wilderness block
+        size_t wil_siz = (epilogue - srt_wil) * sizeof(sf_block); //getting size of wilderness block
         wil_siz = wil_siz | PREV_BLOCK_ALLOCATED;
         srt_wil->header = wil_siz;
 
@@ -81,7 +81,7 @@ void *sf_malloc(size_t size) {
     sf_block *all_blo = ret_free(blocksize); //retrieves the block to work on
     sf_block *tempblock;
     char *temp;
-
+    if (sf_errno != ENOMEM || ((all_blo -> header & BLOCK_SIZE_MASK)/64) > blocksize){
     if (((all_blo -> header & BLOCK_SIZE_MASK)/64) == blocksize){
         (all_blo -> body.links.prev) -> body.links.next = all_blo -> body.links.next; //removing from the doubly linked
         (all_blo -> body.links.next) -> body.links.prev = all_blo -> body.links.prev; 
@@ -92,12 +92,19 @@ void *sf_malloc(size_t size) {
     } else {
         all_blo = split(all_blo, blocksize);
     }
+    } else {
+        return NULL;
+    }
 
     //if wilderness is zero, destroy it
     tempblock = &sf_free_list_heads[9];
     if ((tempblock -> body.links.next -> header & BLOCK_SIZE_MASK) == 0){
         tempblock -> body.links.next = tempblock;
         tempblock -> body.links.prev = tempblock;
+    }
+
+    if (sf_errno == ENOMEM){
+        return NULL;
     }
 
     return all_blo ->body.payload;
@@ -396,7 +403,7 @@ sf_block *split(sf_block *tosplit, size_t size){
     
     size_t blocksize = (tosplit->header & BLOCK_SIZE_MASK); //correct size of the block
 
-    int dif; //difference in actual bytes
+    size_t dif; //difference in actual bytes
     dif = blocksize - (size * 64); //getting the difference in bytes
 
     tosplit -> header = (tosplit -> header & PREV_BLOCK_ALLOCATED ) | THIS_BLOCK_ALLOCATED; // preserve the prev alloc and set this to alloc
@@ -466,7 +473,10 @@ sf_block *ext_wil(sf_block *wil, size_t size){
     }
 
     while (extend > 0){
-        sf_mem_grow();
+        if (sf_mem_grow() == NULL){
+            sf_errno = ENOMEM;
+            break;
+        }
         extend--;
     }
 
@@ -475,11 +485,11 @@ sf_block *ext_wil(sf_block *wil, size_t size){
     epilogue = (sf_block *) temp;
     epilogue -> header = epilogue -> header | THIS_BLOCK_ALLOCATED;
 
-    int new_siz = (epilogue - wil) * (sizeof(sf_block)); //finding the difference
+    size_t new_siz = (epilogue - wil) * (sizeof(sf_block)); //finding the difference
     wil -> header = new_siz | (wil -> header & PREV_BLOCK_ALLOCATED); //retain prev alloc status
 
     epilogue -> prev_footer = wil -> header; 
-
+    
     return wil;
 }
 

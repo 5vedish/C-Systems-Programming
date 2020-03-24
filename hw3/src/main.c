@@ -24,9 +24,8 @@ int main(int argc, char const *argv[]) {
     // void* p2 = sf_realloc(p, 128);
     
 
-     void *x = sf_malloc(sizeof(double) * 8);
-	sf_realloc(x, sizeof(int));
-    printf("%p", x);
+    sf_malloc(65407);
+    sf_malloc(120);
 
     
 
@@ -35,8 +34,7 @@ int main(int argc, char const *argv[]) {
     // void *x = sf_malloc(sizeof(int) * 20);
 	// void *y = sf_realloc(x, sizeof(int) * 16);
 
-    printf("%lu", sizeof(int) * 20);
-    printf("%lu", sizeof(int) * 16);
+
 
 
     
