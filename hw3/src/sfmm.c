@@ -213,6 +213,7 @@ void sf_free(void *pp) {
 
         new_siz = (prv_blc -> header & BLOCK_SIZE_MASK) + (to_free -> header & BLOCK_SIZE_MASK); //getting new size
         prv_blc -> header = new_siz | (prv_blc -> header & PREV_BLOCK_ALLOCATED); //changing the header
+        nxt_blc -> header = nxt_blc -> header & (~PREV_BLOCK_ALLOCATED);
 
         nxt_blc -> prev_footer = prv_blc -> header;
         to_put = prv_blc;

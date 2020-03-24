@@ -20,12 +20,17 @@
 int main(int argc, char const *argv[]) {
     sf_mem_init();
 
-    // void* p = sf_malloc(56);
-    // void* p2 = sf_realloc(p, 128);
-    
+    void* p = sf_malloc(56);
+    void* p2 = sf_malloc(56);
+    void* p3 = sf_malloc(56);
 
-    sf_malloc(65407);
-    sf_malloc(120);
+    sf_free(p);
+    sf_free(p2);
+    sf_free(p3);
+
+    
+    printf("%p%p%p", p, p2, p3);
+    
 
     
 
