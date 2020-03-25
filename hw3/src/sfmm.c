@@ -290,8 +290,11 @@ void *sf_realloc(void *pp, size_t rsize) {
     }
 
     //if reallocating to larger block
+    sf_block *lgr_blc;
     if ((to_rel -> header & BLOCK_SIZE_MASK) < rsize){
-        sf_block *lgr_blc = sf_malloc(rsize);
+        if ((lgr_blc = sf_malloc(rsize)) == NULL){
+            return NULL;
+        }
         memcpy(lgr_blc, to_rel -> body.payload, ((to_rel -> header & BLOCK_SIZE_MASK) - 8));
         sf_free(to_rel -> body.payload);
         return lgr_blc;
@@ -318,7 +321,97 @@ void *sf_realloc(void *pp, size_t rsize) {
 }
 
 void *sf_memalign(size_t size, size_t align) {
-    return NULL;
+
+    char *temp;
+    int is_pow = 1;
+    size_t align_cpy = align;
+
+    while (align_cpy/2 != 1){ //checking power of 2
+        if(align_cpy%2 != 0){
+            is_pow = 0;
+        }
+        align_cpy = align_cpy/2;
+    }
+    
+    if ((align<64) || is_pow == 0){ //if less than 64 or not power of 2, error checking
+        sf_errno = EINVAL;
+        return NULL;
+    }
+
+    size_t blocksize = size + align + 8 + 64; //to get the size of the block to malloc
+
+    temp = (char *) (sf_malloc(blocksize));
+    sf_show_heap();
+    sf_block *to_ali = (sf_block *) (temp - 16); //the actual block it refers to
+
+    size_t addr = (size_t) temp;
+
+    //declarations
+    size_t total_size = to_ali -> header & BLOCK_SIZE_MASK;
+    sf_block *first_free, *second_free, *nxt_nxt;
+    size_t dif, first_free_size = 0;
+    size += (64 - size%64); //rounding up to nearest multiple of 64
+    int is_wil = 0;
+    //declarations
+
+    printf("%lu\n", addr%align);
+
+    if (addr%align != 0){ //if it's not aligned
+        
+    first_free = to_ali; 
+
+    temp = (char *) to_ali + (addr%align);
+    to_ali = (sf_block *) temp; //the block to return
+
+    dif = addr%align; //difference between the two
+
+    first_free -> header = dif | (first_free -> header & PREV_BLOCK_ALLOCATED); //setting header and preserve prev alloc status
+    to_ali -> prev_footer = first_free -> header; //setting footer of first freed block
+
+    insert((first_free -> header & BLOCK_SIZE_MASK)/64, 0, first_free); //inserting the block into the free list
+
+    to_ali -> header = size | THIS_BLOCK_ALLOCATED; //setting alloc status of block to return
+
+    first_free_size = first_free -> header & BLOCK_SIZE_MASK;
+      
+    }
+
+    //and then if there are any leftover blocks possible
+    if ((total_size - first_free_size) > size){
+
+        to_ali -> header = size | (to_ali -> header & PREV_BLOCK_ALLOCATED) | THIS_BLOCK_ALLOCATED; 
+
+        temp = (char *) to_ali + (to_ali -> header & BLOCK_SIZE_MASK);
+        second_free = (sf_block *) temp;
+        dif = total_size - first_free_size - (to_ali -> header & BLOCK_SIZE_MASK);
+        second_free -> header = dif | PREV_BLOCK_ALLOCATED; //since you return the block before
+
+        temp = (char *) second_free + (second_free -> header & BLOCK_SIZE_MASK);
+        nxt_nxt = (sf_block *) temp;
+        nxt_nxt -> prev_footer = second_free -> header; //setting footer of second free block
+        nxt_nxt -> header = nxt_nxt -> header & (~PREV_BLOCK_ALLOCATED);
+
+
+        if (nxt_nxt == epilogue){
+            is_wil = 1;
+        }
+
+        if ((nxt_nxt -> header & THIS_BLOCK_ALLOCATED) == 0){
+            (nxt_nxt -> body.links.prev) -> body.links.next = nxt_nxt -> body.links.next; //removing from doubly
+            (nxt_nxt -> body.links.next) -> body.links.prev = nxt_nxt -> body.links.prev;
+
+            int new_siz = (second_free -> header & BLOCK_SIZE_MASK) + (nxt_nxt -> header & BLOCK_SIZE_MASK);
+            temp = (char *) second_free + new_siz;
+            nxt_nxt = (sf_block *) temp; //now the block after the next
+            second_free -> header = new_siz | PREV_BLOCK_ALLOCATED;
+            nxt_nxt -> prev_footer = second_free -> header;
+        } 
+
+        insert((second_free -> header & BLOCK_SIZE_MASK)/64, is_wil, second_free);
+    }
+
+    return to_ali -> body.payload;
+
 }
 
 //Helper Methods
@@ -335,7 +428,7 @@ sf_block *ret_free(size_t size){
 
         if (block->body.links.next != block){
 
-            if (size <= fibonacci[index]){
+            if (size <= fibonacci[index] && (sf_free_list_heads[index].body.links.next -> header & BLOCK_SIZE_MASK) >= (size*64)){
                 return (sf_free_list_heads[index].body.links.next); //return that block
             }
 
