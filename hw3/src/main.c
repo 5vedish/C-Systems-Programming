@@ -1,68 +1,20 @@
 #include <stdio.h>
 #include "sfmm.h"
 
-// int main(int argc, char const *argv[]) {
-//     sf_mem_init();
-
-//     double* ptr = sf_malloc(sizeof(double));
-
-//     *ptr = 320320320e-320;
-
-//     printf("%.10e\n", *ptr);
-
-//     sf_free(ptr);
-
-//     sf_mem_fini();
-
-//     return EXIT_SUCCESS;
-// }
-
 int main(int argc, char const *argv[]) {
     sf_mem_init();
 
-    void *p = sf_malloc(1100);
+    double* ptr = sf_malloc(sizeof(double));
 
-    sf_malloc(1);
-    sf_free(p);
+    *ptr = 320320320e-320;
 
-    sf_memalign(10, 512);
+    printf("%.10e\n", *ptr);
 
-    sf_memalign(100, 1024);
-    
+    sf_free(ptr);
 
-
-    // void* p = sf_malloc(56);
-    // void* p2 = sf_malloc(56);
-    // void* p3 = sf_malloc(56);
-
-    // sf_free(p);
-
-    // sf_malloc(56);
-    // sf_malloc(300);
-    
-    // sf_free(p2);
-    // sf_free(p3);
-
-    
-    printf("%p", p);
-    
-
-    
-
-    sf_show_heap();
-
-    // void *x = sf_malloc(sizeof(int) * 20);
-	// void *y = sf_realloc(x, sizeof(int) * 16);
-
-
-
-
-    
-
-    
-   
-
-    
+    sf_mem_fini();
 
     return EXIT_SUCCESS;
 }
+
+

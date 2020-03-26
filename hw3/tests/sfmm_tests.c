@@ -205,3 +205,95 @@ Test(sf_memsuite_student, realloc_smaller_block_free_block, .init = sf_mem_init,
 //DO NOT DELETE THESE COMMENTS
 //############################################
 
+//Consecutive allocations and consecutvie calls to free respectively, all free blocks absorbed into wilderness when the last block is freed
+Test(sf_memsuite_student, free_into_wilderness_cases, .init = sf_mem_init, .fini = sf_mem_fini) {
+
+	void *x = sf_malloc(sizeof(int));
+    void *y = sf_malloc(sizeof(int));
+    void *z = sf_malloc(sizeof(int));
+    
+    sf_free(x);
+    sf_free(y);
+    sf_free(z);
+
+	assert_free_block_count(64, 0); //all ints were freed properly 
+	assert_free_list_size(NUM_FREE_LISTS-1, 1); //check that it's the wilderness
+	assert_free_block_count(PAGE_SZ - 48 - 64 -16, 1); //they were coalesced into the wilderness correctly
+
+}
+
+//Destroy and remake the wilderness
+Test(sf_memsuite_student, rebirth, .init = sf_mem_init, .fini = sf_mem_fini) {
+
+	void *x = sf_malloc(PAGE_SZ - 48 - 64 - 16 - 8); //allocate just enough to destroy the heap
+	void *y =sf_malloc(sizeof(int)); //allocate something afterward to extend heap and recreate wilderness
+
+	cr_assert_not_null(x, "x is NULL!");
+	cr_assert_not_null(y, "y is NULL!");
+
+	assert_free_list_size(NUM_FREE_LISTS-1, 1); //ensure that the wilderness is reborn
+	assert_free_block_count(PAGE_SZ-64, 1); //check its size
+
+}
+
+//Allocating more than a page and then testing multiple reallocations to a smaller size
+Test(sf_memsuite_student, malloc_past_page_and_multiple_realloc, .init = sf_mem_init, .fini = sf_mem_fini) {
+
+	void *x = sf_malloc(4088);
+    void *z = sf_realloc(x, 2040);
+    void *y = sf_malloc(2040);
+    void *a = sf_realloc(y, 1016);
+
+	cr_assert_not_null(z, "z is NULL!");
+	cr_assert_not_null(a, "a is NULL!");
+
+	sf_block *bp = (sf_block *)((char*)z - 2*sizeof(sf_header));
+	cr_assert((bp -> header & BLOCK_SIZE_MASK) == 2048, "z is the wrong size!");
+	bp = (sf_block *)((char*)a - 2*sizeof(sf_header));
+	cr_assert((bp -> header & BLOCK_SIZE_MASK) == 1024, "a is the wrong size!");
+
+	assert_free_list_size(NUM_FREE_LISTS-1, 1); //check that there aren't blocks freed unnecessarily or added to wilderness index incorrectly
+	assert_free_block_count(4992, 1); //ensure its size
+
+}
+
+//Testing memalign with alignments that are a page and forces heap extension
+Test(sf_memsuite_student, memalign_page, .init = sf_mem_init, .fini = sf_mem_fini) {
+
+	void *s = sf_malloc(12352); //to save the initial pointer
+	size_t init_addr = (size_t) s;
+	sf_free(s);
+
+	void *x = sf_memalign(4088, 8192);
+	cr_assert_not_null(x, "x is NULL!");
+	size_t addr = (size_t) x;
+	cr_assert( addr%8192 == 0, "x is NOT ALIGNED!");
+
+	if (init_addr%8192 == 0){
+		cr_assert(s == x, "s is in the wrong position!");
+		assert_free_list_size(NUM_FREE_LISTS-1, 1);
+		assert_free_block_count(12160, 1); //only a free block afterwards
+	} else {
+		size_t first = 8192 - (init_addr%8192);
+		assert_free_block_count(first, 1); //a free block before
+		assert_free_list_size(NUM_FREE_LISTS-1, 1); //and the wilderness afterward
+
+	}
+}
+
+//Testing memalign with alignments smaller than the given size and testing with the lowest base size
+Test(sf_memsuite_student, memalign_smalls, .init = sf_mem_init, .fini = sf_mem_fini) {
+
+	void *x = sf_memalign(1016, 64);
+	cr_assert_not_null(x, "x is NULL!");
+	size_t addr = (size_t) x;
+	cr_assert( addr%64 == 0, "x is NOT ALIGNED!");
+
+	sf_block *bp = (sf_block *)((char*)x - 2*sizeof(sf_header));
+	cr_assert((bp -> header & BLOCK_SIZE_MASK) == 1024, "x is the wrong size!");
+
+	assert_free_list_size(NUM_FREE_LISTS-1, 1); //check presence of wilderness
+	assert_free_block_count(PAGE_SZ - 1024 - 48 - 64 - 16, 1); //check its size
+
+}
+

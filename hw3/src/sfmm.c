@@ -341,7 +341,7 @@ void *sf_memalign(size_t size, size_t align) {
     size_t blocksize = size + align + 8 + 64; //to get the size of the block to malloc
 
     temp = (char *) (sf_malloc(blocksize));
-    sf_show_heap();
+
     sf_block *to_ali = (sf_block *) (temp - 16); //the actual block it refers to
 
     size_t addr = (size_t) temp;
@@ -354,16 +354,16 @@ void *sf_memalign(size_t size, size_t align) {
     int is_wil = 0;
     //declarations
 
-    printf("%lu\n", addr%align);
+    printf("%lu\n", addr);
 
     if (addr%align != 0){ //if it's not aligned
         
     first_free = to_ali; 
 
-    temp = (char *) to_ali + (addr%align);
+    temp = (char *) to_ali + (align - (addr%align));
     to_ali = (sf_block *) temp; //the block to return
 
-    dif = addr%align; //difference between the two
+    dif = align - (addr%align); //difference between the two
 
     first_free -> header = dif | (first_free -> header & PREV_BLOCK_ALLOCATED); //setting header and preserve prev alloc status
     to_ali -> prev_footer = first_free -> header; //setting footer of first freed block
@@ -405,6 +405,9 @@ void *sf_memalign(size_t size, size_t align) {
             nxt_nxt = (sf_block *) temp; //now the block after the next
             second_free -> header = new_siz | PREV_BLOCK_ALLOCATED;
             nxt_nxt -> prev_footer = second_free -> header;
+            if (nxt_nxt == epilogue){
+            is_wil = 1;
+        }
         } 
 
         insert((second_free -> header & BLOCK_SIZE_MASK)/64, is_wil, second_free);
@@ -457,7 +460,7 @@ sf_block *ret_free(size_t size){
     if (block -> body.links.next == block){
         sf_mem_grow();
         new_wil = epilogue;
-        new_wil -> header = new_wil -> header | 4096; //a new page in memory
+        new_wil -> header = new_wil -> header | PAGE_SZ; //a new page in memory
         new_wil -> header = new_wil -> header & (~THIS_BLOCK_ALLOCATED); //unset alloc status
         temp = sf_mem_end();
         temp -= 16;
@@ -562,7 +565,7 @@ sf_block *ext_wil(sf_block *wil, size_t size){
     char *temp;
 
     while (crt_siz < size){
-        crt_siz += 4096;
+        crt_siz += PAGE_SZ;
         extend++;
     }
 
