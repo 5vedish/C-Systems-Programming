@@ -31,26 +31,35 @@ int worker(void) {
     Signal(SIGHUP, sighup_handler); //signal handlers
     Signal(SIGTERM, sighup_handler);
 
+    raise(SIGSTOP); //stop itself after initialization
+
+    struct problem *to_read = Malloc(sizeof(struct problem));
+
+    while (1){
+
+    debug("________________________________________BOOM");
+
+    //Read from master process
+    fread(to_read, 1, sizeof(struct problem), stdin);
+    // Read(STDIN_FILENO, to_read, sizeof(struct problem));
+    // fgetc(stdin);
+
+    debug("%lu", to_read -> size);
+
+    debug("________________________________________BOOM2");
+
     if (terminated){ //exit upon sigterm
         exit(EXIT_SUCCESS);
-    }
+    }    
 
     if (cancelled){ //if SIGHUP, stop itself *incomplete
         raise(SIGSTOP);
     }
 
-    raise(SIGSTOP); //stop itself after initialization
 
-    //Read from master process
+    }
     
-    debug("________________________________________");
-
-    struct problem *to_read = Malloc(sizeof(struct problem));
-    // fread(to_read, 1, sizeof(struct problem), stdin);
-    read(STDIN_FILENO, to_read, sizeof(struct problem));
-    raise(SIGSTOP);
-
-    debug("________________________________________");
+    
   
     
 
