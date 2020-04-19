@@ -10,14 +10,15 @@
 //My Variables
 
 volatile sig_atomic_t terminated;
-volatile sig_atomic_t cancelled;
+volatile sig_atomic_t canceled;
 
 //Signal Handlers
 void sighup_handler(int sig){
-    cancelled = 1;
+    canceled = 1;
 }
 
 void sigterm_handler(int sig){ //terminate child process via exit
+    canceled = 1;
     terminated = 1;
 }
 
@@ -29,7 +30,7 @@ void sigterm_handler(int sig){ //terminate child process via exit
 int worker(void) {
 
     Signal(SIGHUP, sighup_handler); //signal handlers
-    Signal(SIGTERM, sighup_handler);
+    Signal(SIGTERM, sigterm_handler);
 
     raise(SIGSTOP); //stop itself after initialization
 
@@ -37,35 +38,38 @@ int worker(void) {
 
     while (1){
 
-    debug("________________________________________BOOM");
-
     //Read from master process
-    fread(to_read, 1, sizeof(struct problem), stdin);
-    // Read(STDIN_FILENO, to_read, sizeof(struct problem));
-    // fgetc(stdin);
+    Read(STDIN_FILENO, to_read, sizeof(struct problem));
+    debug("Reading Problem Header:(%lu, %i, %i, %i, %i)", to_read -> size, to_read -> type, to_read -> id, to_read -> nvars, to_read -> var);
 
-    debug("%lu", to_read -> size);
+    Realloc(to_read, to_read -> size); //Make space for the follow info
+    //Read the following data
+    ((to_read -> size - sizeof(struct result)) == 0) ? 0 : Read(STDIN_FILENO, to_read -> data, to_read -> size - sizeof(struct problem)); //Don't read twice if size is 0
+    debug("Reading Problem Info: (%s)", to_read -> data);
 
-    debug("________________________________________BOOM2");
+    debug("______________________________");
+    //Attempt to solve the problem
+    struct result *to_write = solvers[to_read -> type].solve(to_read, &canceled);
 
+    debug("______________________________");
+    //Write to master process
+    Write(STDOUT_FILENO, to_write, sizeof(struct result));
+
+    ((to_write -> size - sizeof(struct result)) == 0) ? 0 : Write(STDOUT_FILENO, to_write, to_write -> size - sizeof(struct result)); //Don't write twice if size is 0
+
+    raise(SIGSTOP); //Stop itself after sending result
+    
     if (terminated){ //exit upon sigterm
         exit(EXIT_SUCCESS);
     }    
 
-    if (cancelled){ //if SIGHUP, stop itself *incomplete
+    if (canceled){ //if SIGHUP, stop itself *incomplete
+        //might have to write the result stuff here
         raise(SIGSTOP);
     }
 
-
     }
     
-    
-  
-    
-
-    
-
-
     // TO BE IMPLEMENTED
     return EXIT_FAILURE;
 }
