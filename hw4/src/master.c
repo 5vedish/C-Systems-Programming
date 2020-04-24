@@ -18,13 +18,29 @@ int temp_fd[2]; //temp file descriptors
 //Signal Handlers
 void sigchild_handler(int sig){ //SIGCHLD handler
     pid_t pid;
-    while ((pid = waitpid(-1, NULL, WNOHANG | WUNTRACED | WORKER_CONTINUED)) != 0){
+    int status;
+    int old_status;
+    while ((pid = waitpid(-1, &status, WNOHANG | WUNTRACED | WORKER_CONTINUED)) != 0){
         int pid_index = fnd_pid(pid);
+        old_status = statuses[pid_index];
+
+        if (WIFSTOPPED(status)){
+            if (statuses[pid_index] == WORKER_STARTED || statuses[pid_index] == WORKER_STOPPED){
+                statuses[pid_index] = WORKER_IDLE;
+            } else {
+                statuses[pid_index] = WORKER_STOPPED;
+            }
+        }
+
+        int i = WIFEXITED(status);
+        if (i == EXIT_SUCCESS){
+            statuses[pid_index] = WORKER_EXITED;
+        } else {
+            statuses[pid_index] = WORKER_ABORTED;
+        }
 
         
-        sf_change_state(pid, statuses[pid_index], )
-
-
+        sf_change_state(pid,old_status, statuses[pid_index]);
 
     }
 }
@@ -89,6 +105,7 @@ int master(int workers) {
 
         for (i = 0; i < workers; i++){
         Write(fd[i+workers], prb_arr[i], prb_arr[i] -> size); //writing from write end of master
+        sf_send_problem(wrk_arr[i], prb_arr[i]);
         }   
 
         for (i = 0; i < workers; i++){
