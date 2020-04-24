@@ -11,7 +11,7 @@
 //My Variables
 pid_t wrk_arr[MAX_WORKERS]; //array of workers
 struct problem *prb_arr[MAX_WORKERS]; //array of problems
-int statuses[MAX_WORKERS]; //flags for the statuses
+sig_atomic_t statuses[MAX_WORKERS]; //flags for the statuses
 int fd[4*MAX_WORKERS]; //file descriptors
 int temp_fd[2]; //temp file descriptors
 
@@ -33,6 +33,7 @@ void sigchild_handler(int sig){ //SIGCHLD handler
 
         //if it was stopped, use previous state to determine the next state
         if (WIFSTOPPED(status)){
+            debug("WORKER %d HAS BEEN STOPPED!", pid_index);
             //either started/stopped -> idle
             if (statuses[pid_index] == WORKER_STARTED || statuses[pid_index] == WORKER_STOPPED){
                 statuses[pid_index] = WORKER_IDLE;
@@ -69,6 +70,7 @@ void sigpipe_handler(int sig){ //SIGPIPE handler, to preserve master
 int master(int workers) {
 
     sf_start(); //beginning of function
+    debug("MASTER HAS STARTED!");
 
     //installing signals
     Signal(SIGCHLD, sigchild_handler);
@@ -85,11 +87,11 @@ int master(int workers) {
         fd[i+(2*workers)] = temp_fd[0];
         fd[i+(3*workers)] = temp_fd[1]; //setting up the read and write pipes for worker
 
+        statuses[i] = WORKER_STARTED;
         if((wrk_arr[i] = Fork()) == 0){
-            statuses[i] = WORKER_STARTED;
             dup2(fd[i+2*workers], STDIN_FILENO); 
             dup2(fd[i+3*workers], STDOUT_FILENO); //redirecting input and output in worker processes
-            execl("bin/polya_worker", "bin/polya_worker"); //execute the workers
+            execl("./bin/polya_worker", "./bin/polya_worker"); //execute the workers
 
             Close(fd[i]);
             Close(fd[i+workers]); //close fds for master in worker
@@ -99,17 +101,20 @@ int master(int workers) {
         }
     }
 
+    debug("PIPES ARE SET!");
+
     //main loop
     while (1){
+    debug("RUNNING MAIN LOOP!");
 
     if (chk_stt(WORKER_IDLE, workers, workers)){ //if they are all stopped
-
        if (ass_prb(workers) == -1){ //assigning the problems and if no more problems
             if (chk_stt(WORKER_IDLE, workers, workers) == 1){
                 snd_sig(workers, SIGTERM); //terminate the workers
             }
 
             if (chk_stt(WORKER_EXITED, workers, workers) == 1){
+                debug("you did a great job");
                 sf_end();
                 return EXIT_SUCCESS;
             }
@@ -120,7 +125,6 @@ int master(int workers) {
             statuses[i] = WORKER_CONTINUED;
             sf_change_state(wrk_arr[i], WORKER_IDLE, WORKER_CONTINUED);
         }
-
     }
 
     for (i = 0; i < workers; i++){
@@ -133,11 +137,12 @@ int master(int workers) {
     for (i = 0; i < workers; i++){
         if(statuses[i] != WORKER_STOPPED){ //if it has already solved it
             statuses[i] = WORKER_RUNNING; //set workers to running, as they are solving problems
-         } 
+        } 
     }
 
     for (i = 0; i < workers; i++){
         if (statuses[i] == WORKER_STOPPED){ //if it's stopped, check result
+        debug("SOLUTION CHECKING HAPPENED!");
             struct result *solution = Malloc(sizeof(struct result));
             Read(fd[i], solution, sizeof(struct result));
 
@@ -148,6 +153,9 @@ int master(int workers) {
 
             if (post_result(solution, prb_arr[i]) == 0){ //if the result is correct, cancel other works
                 snd_sig(workers, SIGHUP);
+                for (i = 0; i < workers; i++){
+                    Free(prb_arr[i]); //freeing the problems that were malloced
+                }
             }
 
         }
@@ -157,14 +165,8 @@ int master(int workers) {
     if (chk_stt(WORKER_ABORTED, workers, workers) == 1){ //if any of them aborted
         break;
     }
-//free the problem that you malloced
-    
 
-
- 
     }
-
-
 
     sf_end(); //end of function
 
@@ -184,13 +186,14 @@ int ass_prb(int workers){ //returns -1 if no more problems
             }
             prb_arr[i] = to_write; //saving the problem inside the array
         }
-
+    debug("PROBLEMS HAVE BEEN ASSIGNED!");
     return 0;
 
 }
 
 //returns 0 if num of statuses found isn't expected and 1 if it is
 int chk_stt(sig_atomic_t state, int workers, int num){
+    debug("CHECKING STATES!");
     int i, j = 0; //counters
     for (i = 0; i < workers; i++){
         if (statuses[i] == state){
