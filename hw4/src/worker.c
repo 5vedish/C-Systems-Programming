@@ -26,6 +26,7 @@ void sigterm_handler(int sig){ //terminate child process via exit
  * (See polya.h for specification.)
  */
 int worker(void) {
+    debug("SUCCESSFULLY ENTERED WORKER!");
 
     Signal(SIGHUP, sighup_handler); //signal handlers
     Signal(SIGTERM, sigterm_handler);

@@ -15,27 +15,39 @@ int statuses[MAX_WORKERS]; //flags for the statuses
 int fd[4*MAX_WORKERS]; //file descriptors
 int temp_fd[2]; //temp file descriptors
 
+//Method Declarations
+int ass_prb(int workers);
+int chk_stt(sig_atomic_t state, int workers, int num);
+int fnd_pid(pid_t pid);
+void snd_sig(int workers, int sig);
+
 //Signal Handlers
 void sigchild_handler(int sig){ //SIGCHLD handler
     pid_t pid;
     int status;
     int old_status;
+
     while ((pid = waitpid(-1, &status, WNOHANG | WUNTRACED | WORKER_CONTINUED)) != 0){
         int pid_index = fnd_pid(pid);
         old_status = statuses[pid_index];
 
+        //if it was stopped, use previous state to determine the next state
         if (WIFSTOPPED(status)){
+            //either started/stopped -> idle
             if (statuses[pid_index] == WORKER_STARTED || statuses[pid_index] == WORKER_STOPPED){
                 statuses[pid_index] = WORKER_IDLE;
             } else {
+                //else it went from running -> stopped
                 statuses[pid_index] = WORKER_STOPPED;
             }
         }
 
         int i = WIFEXITED(status);
         if (i == EXIT_SUCCESS){
+            //if it exited normally
             statuses[pid_index] = WORKER_EXITED;
         } else {
+            //there was an issue and it was aborted
             statuses[pid_index] = WORKER_ABORTED;
         }
 
@@ -48,11 +60,6 @@ void sigchild_handler(int sig){ //SIGCHLD handler
 void sigpipe_handler(int sig){ //SIGPIPE handler, to preserve master
 
 }
-
-//Method Declarations
-void ass_prb(int workers);
-int chk_stt(sig_atomic_t state, int workers, int num);
-int fnd_pid(pid_t pid);
 
 
 /*
@@ -97,36 +104,61 @@ int master(int workers) {
 
     if (chk_stt(WORKER_IDLE, workers, workers)){ //if they are all stopped
 
-        ass_prb(workers); //assigning the problems
+       if (ass_prb(workers) == -1){ //assigning the problems and if no more problems
+            if (chk_stt(WORKER_IDLE, workers, workers) == 1){
+                snd_sig(workers, SIGTERM); //terminate the workers
+            }
+
+            if (chk_stt(WORKER_EXITED, workers, workers) == 1){
+                sf_end();
+                return EXIT_SUCCESS;
+            }
+       } 
 
         for (i = 0; i < workers; i++){
             Kill(wrk_arr[i], SIGCONT); //resume the workers
+            statuses[i] = WORKER_CONTINUED;
+            sf_change_state(wrk_arr[i], WORKER_IDLE, WORKER_CONTINUED);
         }
-
-        for (i = 0; i < workers; i++){
-        Write(fd[i+workers], prb_arr[i], prb_arr[i] -> size); //writing from write end of master
-        sf_send_problem(wrk_arr[i], prb_arr[i]);
-        }   
-
-        for (i = 0; i < workers; i++){
-        statuses[i] = WORKER_RUNNING; //set workers to running, as they are solving problems
-        }
-
 
     }
 
-    
+    for (i = 0; i < workers; i++){
+        if(statuses[i] == WORKER_CONTINUED){ //if it's continued, send it the problem
+            Write(fd[i+workers], prb_arr[i], prb_arr[i] -> size); //writing from write end of master
+            sf_send_problem(wrk_arr[i], prb_arr[i]);
+        }
+    }   
+
+    for (i = 0; i < workers; i++){
+        if(statuses[i] != WORKER_STOPPED){ //if it has already solved it
+            statuses[i] = WORKER_RUNNING; //set workers to running, as they are solving problems
+         } 
+    }
+
+    for (i = 0; i < workers; i++){
+        if (statuses[i] == WORKER_STOPPED){ //if it's stopped, check result
+            struct result *solution = Malloc(sizeof(struct result));
+            Read(fd[i], solution, sizeof(struct result));
+
+            if (solution -> failed > 0){ //if it wasn't canceled 
+                ((solution -> size - sizeof(struct result)) == 0) ? 0 : Realloc(solution, solution -> size); //read if there's a data section
+                ((solution -> size - sizeof(struct result)) == 0) ? 0 : Read(fd[i], solution -> data, solution -> size - sizeof(struct result));
+            }
+
+            if (post_result(solution, prb_arr[i]) == 0){ //if the result is correct, cancel other works
+                snd_sig(workers, SIGHUP);
+            }
+
+        }
+    }
+
+
+    if (chk_stt(WORKER_ABORTED, workers, workers) == 1){ //if any of them aborted
+        break;
+    }
 //free the problem that you malloced
     
-
-
-
-
-
-
-
-
-
 
 
  
@@ -140,7 +172,7 @@ int master(int workers) {
     return EXIT_FAILURE;
 }
 
-void ass_prb(int workers){
+int ass_prb(int workers){ //returns -1 if no more problems
 
     struct problem *to_write = Malloc(sizeof(struct problem)); //space for a problem
 
@@ -148,10 +180,12 @@ void ass_prb(int workers){
     for (i = 0; i < workers; i++){
             if((to_write = ((struct problem *) get_problem_variant(i, workers))) == NULL){
                 //no more problems
-                return;
+                return -1;
             }
             prb_arr[i] = to_write; //saving the problem inside the array
         }
+
+    return 0;
 
 }
 
@@ -159,7 +193,7 @@ void ass_prb(int workers){
 int chk_stt(sig_atomic_t state, int workers, int num){
     int i, j = 0; //counters
     for (i = 0; i < workers; i++){
-        if (statuses[i] = state){
+        if (statuses[i] == state){
             j++;
         }
     }
@@ -170,7 +204,7 @@ int chk_stt(sig_atomic_t state, int workers, int num){
 int fnd_pid(pid_t pid){ //search for and return index of the pid
     int i; //counter
     for (i = 0; i < MAX_WORKERS; i++){
-        if(pid = wrk_arr[i]){
+        if(pid == wrk_arr[i]){
             return i;
         }
     }
@@ -178,6 +212,13 @@ int fnd_pid(pid_t pid){ //search for and return index of the pid
     return -1;
 }
 
+void snd_sig(int workers, int sig){ //send sighup to workers when they are to be canceled
+    int i; //counter
+    for (i = 0; i < workers; i++){
+        Kill(wrk_arr[i], sig);
+        sf_cancel(wrk_arr[i]);
+    }
+}
 
 
 
