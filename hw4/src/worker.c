@@ -12,12 +12,12 @@
 volatile sig_atomic_t canceled;
 
 //Signal Handlers
-void sighup_handler(int sig){
+void sighup_handler(int sig){ //just setting the flag
     canceled = 1;
 }
 
 void sigterm_handler(int sig){ //terminate child process via exit
-    exit(EXIT_SUCCESS);
+    _exit(EXIT_SUCCESS);
 }
 
 
