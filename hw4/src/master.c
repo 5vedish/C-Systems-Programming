@@ -145,8 +145,7 @@ int master(int workers) {
     for (i = 0; i < workers; i++){
         if(statuses[i] == WORKER_CONTINUED){ //if it's continued, send it the problem
             if (!done){
-                debug("%lu", prb_arr[i] -> size);
-                Write(fd[i*4+1], prb_arr[i], prb_arr[i] -> size); //writing from write end of master
+                Write(fd[i*4+1], prb_arr[i], prb_arr[i] -> size); //writing from write end of master 
                 sf_send_problem(wrk_arr[i], prb_arr[i]);
             }
         }
@@ -162,31 +161,41 @@ int master(int workers) {
     for (i = 0; i < workers; i++){
         if (statuses[i] == WORKER_STOPPED){ //if it's stopped, check result
             struct result *solution = Malloc(sizeof(struct result));
+            debug("WORKER %u", wrk_arr[i]);
             Read(fd[i*4+2], solution, sizeof(struct result));
+            debug("WORKER %u", wrk_arr[i]);
+            debug("SOLUTION CHECKING HAPPENED FOR WORKER %u", wrk_arr[i]);
 
             if (solution -> failed > 0){ //if it wasn't canceled 
                 ((solution -> size - sizeof(struct result)) == 0) ? 0 : Realloc(solution, solution -> size); //read if there's a data section
                 ((solution -> size - sizeof(struct result)) == 0) ? 0 : Read(fd[i*workers+2], solution -> data, solution -> size - sizeof(struct result));
             }
+            
             if (post_result(solution, prb_arr[i]) == 0){ //if the result is correct, cancel other workers
                 snd_sig(workers, SIGHUP, i);
-                for (i = 1; i < workers; i++){
-                    Free(prb_arr[i]); //freeing the problems that were malloced
-                }
+                
             }
             Free(solution);
-        debug("SOLUTION CHECKING HAPPENED FOR WORKER %d", i);
         }
     }
+
 //IF STOPPED
-//IF ALL STOPPED
-    if (chk_stt(WORKER_STOPPED, workers, workers)){ //set them all to idle after they are all stopped
-        for(i = 0; i < workers; i++){
+//SET IDLE
+
+    for (i = 0; i < workers; i++){ //set to idle if they stopped
+        if (statuses[i] == WORKER_STOPPED){
             statuses[i] = WORKER_IDLE;
             sf_change_state(wrk_arr[i], WORKER_STOPPED, WORKER_IDLE);
         }
     }
-//IF ALL STOPPED
+
+    if (chk_stt(WORKER_STOPPED, workers, workers)){ //if all of them have been stopped
+        for (i = 1; i < workers; i++){
+                    Free(prb_arr[i]); //freeing the problems that were malloced
+                }
+    }
+
+//SET IDLE
     if (chk_stt(WORKER_ABORTED, workers, workers) == 1){ //if any of them aborted
         break;
     }
