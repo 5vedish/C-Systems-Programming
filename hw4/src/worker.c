@@ -16,7 +16,8 @@ void sighup_handler(int sig){ //just setting the flag
     canceled = 1;
 }
 
-void sigterm_handler(int sig){ //terminate child process via exit
+void sigterm_handler(int sig){ //terminate child process via exit  
+    debug("WORKER TERMINATED");
     _exit(EXIT_SUCCESS);
 }
 
@@ -31,13 +32,18 @@ int worker(void) {
     Signal(SIGHUP, sighup_handler); //signal handlers
     Signal(SIGTERM, sigterm_handler);
 
+    debug("WAITING TO RESUME!");
     raise(SIGSTOP); //stop itself after initialization
+    debug("RESUMED!");
 
     while (1){
+    debug("ENTERED LOOP FOR WORKER!");
     struct problem *to_read = Malloc(sizeof(struct problem)); //make space for problem
 
+    // debug("HANG BEFORE READ");
     //read from master process
     Read(STDIN_FILENO, to_read, sizeof(struct problem));
+    debug("===============================");
 
     to_read = Realloc(to_read, to_read -> size); //make space for the follow info
     //read the following data
@@ -47,6 +53,8 @@ int worker(void) {
     if (to_read -> type == NULL_PROBLEM_TYPE){ //for problem type 0
         exit(EXIT_SUCCESS);
     }
+
+    debug("PROBLEM WAS READ!");
 
     //attempt to solve the problem
     struct result *to_write = solvers[to_read -> type].solve(to_read, &canceled);
@@ -70,6 +78,7 @@ int worker(void) {
 
     ((to_write -> size - sizeof(struct result)) == 0) ? 0 : Write(STDOUT_FILENO, to_write -> data, to_write -> size - sizeof(struct result)); //don't write twice if size is 0
     Free(to_write); //freeing the result
+    debug("WRITING RESULT!");
 
     raise(SIGSTOP); //stop itself after sending result    
     }

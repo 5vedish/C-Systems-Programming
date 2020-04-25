@@ -14,48 +14,54 @@ struct problem *prb_arr[MAX_WORKERS]; //array of problems
 sig_atomic_t statuses[MAX_WORKERS]; //flags for the statuses
 int fd[4*MAX_WORKERS]; //file descriptors
 int temp_fd[2]; //temp file descriptors
+sig_atomic_t done;
 
 //Method Declarations
 int ass_prb(int workers);
 int chk_stt(sig_atomic_t state, int workers, int num);
 int fnd_pid(pid_t pid);
-void snd_sig(int workers, int sig);
+void snd_sig(int workers, int sig, int no_inc);
 
 //Signal Handlers
 void sigchild_handler(int sig){ //SIGCHLD handler
     pid_t pid;
     int status;
-    int old_status;
 
-    while ((pid = waitpid(-1, &status, WNOHANG | WUNTRACED | WORKER_CONTINUED)) != 0){
+    while ((pid = waitpid(-1, &status, WNOHANG | WUNTRACED | WORKER_CONTINUED)) > 0){
         int pid_index = fnd_pid(pid);
-        old_status = statuses[pid_index];
 
         //if it was stopped, use previous state to determine the next state
         if (WIFSTOPPED(status)){
             debug("WORKER %d HAS BEEN STOPPED!", pid_index);
             //either started/stopped -> idle
-            if (statuses[pid_index] == WORKER_STARTED || statuses[pid_index] == WORKER_STOPPED){
+            if (statuses[pid_index] == WORKER_STARTED){
+                sf_change_state(pid,statuses[pid_index], WORKER_IDLE);
                 statuses[pid_index] = WORKER_IDLE;
+                debug("1 HIT THE FIRST");
             } else {
                 //else it went from running -> stopped
+                sf_change_state(pid,statuses[pid_index], WORKER_STOPPED);
                 statuses[pid_index] = WORKER_STOPPED;
+                debug("2 HIT THE SECOND");
             }
         }
 
-        int i = WIFEXITED(status);
+        int i = WEXITSTATUS(status);
         if (i == EXIT_SUCCESS){
+            debug("WORKER %d HAS BEEN EXITED!", pid_index);
             //if it exited normally
+            sf_change_state(pid,statuses[pid_index], WORKER_EXITED);
             statuses[pid_index] = WORKER_EXITED;
-        } else {
+            debug("3 HIT THE THIRD%i", pid_index);
+        } else if (i == EXIT_FAILURE) {
             //there was an issue and it was aborted
+            sf_change_state(pid,statuses[pid_index], WORKER_ABORTED);
             statuses[pid_index] = WORKER_ABORTED;
+            debug("4 HIT THE FOURTH");
         }
 
-        
-        sf_change_state(pid,old_status, statuses[pid_index]);
-
     }
+
 }
 
 void sigpipe_handler(int sig){ //SIGPIPE handler, to preserve master
@@ -78,26 +84,31 @@ int master(int workers) {
 
 
     int i; //counter
+    pid_t pid;
     for (i = 0; i < workers; i++){ //generating the workers
         pipe(temp_fd);
-        fd[i] = temp_fd[0];
-        fd[i+workers] = temp_fd[1]; //setting up the read and write pipes for master
+        fd[i*workers] = temp_fd[0];
+        fd[i*workers+1] = temp_fd[1]; //setting up the read and write pipes for master
 
         pipe(temp_fd);
-        fd[i+(2*workers)] = temp_fd[0];
-        fd[i+(3*workers)] = temp_fd[1]; //setting up the read and write pipes for worker
+        fd[i*workers+2] = temp_fd[0];
+        fd[i*workers+3] = temp_fd[1]; //setting up the read and write pipes for worker
 
         statuses[i] = WORKER_STARTED;
-        if((wrk_arr[i] = Fork()) == 0){
-            dup2(fd[i+2*workers], STDIN_FILENO); 
-            dup2(fd[i+3*workers], STDOUT_FILENO); //redirecting input and output in worker processes
-            execl("./bin/polya_worker", "./bin/polya_worker"); //execute the workers
+        if((pid = Fork()) == 0){ 
+            dup2(fd[i*workers], STDIN_FILENO); 
+            dup2(fd[i*workers+3], STDOUT_FILENO); //redirecting input and output in worker processes
 
-            Close(fd[i]);
-            Close(fd[i+workers]); //close fds for master in worker
+            char *argv[1];
+            argv[0] = NULL;
+            execl("bin/polya_worker", argv[0], (char *) NULL); //execute the workers
+
+            Close(fd[i*workers+1]);
+            Close(fd[i*workers+2]); //close fds for master in worker
         } else{
-            Close(fd[i+2*workers]);
-            Close(fd[i+3*workers]); //close fds for worker in master
+            wrk_arr[i] = pid; //save the pid in the worker
+            Close(fd[i*workers]);
+            Close(fd[i*workers+3]); //close fds for worker in master
         }
     }
 
@@ -105,38 +116,49 @@ int master(int workers) {
 
     //main loop
     while (1){
-    debug("RUNNING MAIN LOOP!");
+
+    if (chk_stt(WORKER_EXITED, workers, workers) == 1){
+        debug("you did a great job");
+        sf_end();
+        return EXIT_SUCCESS;
+        }
 
     if (chk_stt(WORKER_IDLE, workers, workers)){ //if they are all stopped
-       if (ass_prb(workers) == -1){ //assigning the problems and if no more problems
-            if (chk_stt(WORKER_IDLE, workers, workers) == 1){
-                snd_sig(workers, SIGTERM); //terminate the workers
-            }
-
-            if (chk_stt(WORKER_EXITED, workers, workers) == 1){
-                debug("you did a great job");
-                sf_end();
-                return EXIT_SUCCESS;
-            }
+        if (!done){
+            if (ass_prb(workers) == -1){ //assigning the problems and if no more problems
+                done = 1;
+                for (i = 0; i < workers; i++){ //send sigterm first and then sigcont
+                    Kill(wrk_arr[i], SIGTERM);
+                    debug("THIS KEEPS RUNNING!");
+                    Kill(wrk_arr[i], SIGCONT);
+                }
        } 
-
-        for (i = 0; i < workers; i++){
-            Kill(wrk_arr[i], SIGCONT); //resume the workers
-            statuses[i] = WORKER_CONTINUED;
-            sf_change_state(wrk_arr[i], WORKER_IDLE, WORKER_CONTINUED);
         }
+
+       if (!done){
+           for (i = 0; i < workers; i++){
+                Kill(wrk_arr[i], SIGCONT); //resume the workers
+                statuses[i] = WORKER_CONTINUED;
+                sf_change_state(wrk_arr[i], WORKER_IDLE, WORKER_CONTINUED);
+            }
+       }
+
     }
 
     for (i = 0; i < workers; i++){
         if(statuses[i] == WORKER_CONTINUED){ //if it's continued, send it the problem
-            Write(fd[i+workers], prb_arr[i], prb_arr[i] -> size); //writing from write end of master
-            sf_send_problem(wrk_arr[i], prb_arr[i]);
+            debug("%lu", prb_arr[i] -> size);
+            if (!done){
+                Write(fd[i*workers+1], prb_arr[i], prb_arr[i] -> size); //writing from write end of master
+                sf_send_problem(wrk_arr[i], prb_arr[i]);
+            }
         }
     }   
 
     for (i = 0; i < workers; i++){
-        if(statuses[i] != WORKER_STOPPED){ //if it has already solved it
+        if(statuses[i] == WORKER_CONTINUED && statuses[i] != WORKER_STOPPED){ //if it has already solved it or is continuing
             statuses[i] = WORKER_RUNNING; //set workers to running, as they are solving problems
+            debug("SOMETHING WAS SET TO RUNNING!");
         } 
     }
 
@@ -144,7 +166,8 @@ int master(int workers) {
         if (statuses[i] == WORKER_STOPPED){ //if it's stopped, check result
         debug("SOLUTION CHECKING HAPPENED!");
             struct result *solution = Malloc(sizeof(struct result));
-            Read(fd[i], solution, sizeof(struct result));
+            Read(fd[i*workers+2], solution, sizeof(struct result));
+            debug("MASTER HAS READ!");
 
             if (solution -> failed > 0){ //if it wasn't canceled 
                 ((solution -> size - sizeof(struct result)) == 0) ? 0 : Realloc(solution, solution -> size); //read if there's a data section
@@ -152,12 +175,20 @@ int master(int workers) {
             }
 
             if (post_result(solution, prb_arr[i]) == 0){ //if the result is correct, cancel other works
-                snd_sig(workers, SIGHUP);
+                snd_sig(workers, SIGHUP, i);
                 for (i = 0; i < workers; i++){
                     Free(prb_arr[i]); //freeing the problems that were malloced
                 }
+                Free(solution);
             }
 
+        }
+    }
+
+    if (chk_stt(WORKER_STOPPED, workers, workers)){ //set them all to idle after they are all stopped
+        for(i = 0; i < workers; i++){
+            statuses[i] = WORKER_IDLE;
+            sf_change_state(wrk_arr[i], WORKER_STOPPED, WORKER_IDLE);
         }
     }
 
@@ -166,8 +197,12 @@ int master(int workers) {
         break;
     }
 
-    }
+    
 
+    // debug("IT'S HIT END OF MAIN LOOP");
+
+    }
+    debug("it's ok, you can try again");
     sf_end(); //end of function
 
     // TO BE IMPLEMENTED
@@ -176,11 +211,11 @@ int master(int workers) {
 
 int ass_prb(int workers){ //returns -1 if no more problems
 
-    struct problem *to_write = Malloc(sizeof(struct problem)); //space for a problem
+    struct problem *to_write; //pointer to problem
 
     int i; //counter
     for (i = 0; i < workers; i++){
-            if((to_write = ((struct problem *) get_problem_variant(i, workers))) == NULL){
+            if((to_write = ((struct problem *) get_problem_variant(workers, i))) == NULL){
                 //no more problems
                 return -1;
             }
@@ -193,7 +228,6 @@ int ass_prb(int workers){ //returns -1 if no more problems
 
 //returns 0 if num of statuses found isn't expected and 1 if it is
 int chk_stt(sig_atomic_t state, int workers, int num){
-    debug("CHECKING STATES!");
     int i, j = 0; //counters
     for (i = 0; i < workers; i++){
         if (statuses[i] == state){
@@ -215,11 +249,13 @@ int fnd_pid(pid_t pid){ //search for and return index of the pid
     return -1;
 }
 
-void snd_sig(int workers, int sig){ //send sighup to workers when they are to be canceled
+void snd_sig(int workers, int sig, int no_inc){ //send sighup to workers when they are to be canceled
     int i; //counter
     for (i = 0; i < workers; i++){
-        Kill(wrk_arr[i], sig);
-        sf_cancel(wrk_arr[i]);
+        if (i != no_inc){
+            Kill(wrk_arr[i], sig);
+            (sig == SIGHUP) ? sf_cancel(wrk_arr[i]) : 0;
+        }
     }
 }
 
