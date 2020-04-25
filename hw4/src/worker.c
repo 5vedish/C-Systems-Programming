@@ -40,7 +40,7 @@ int worker(void) {
     debug("ENTERED LOOP FOR WORKER!");
     struct problem *to_read = Malloc(sizeof(struct problem)); //make space for problem
 
-    // debug("HANG BEFORE READ");
+    debug("HANG BEFORE READ");
     //read from master process
     Read(STDIN_FILENO, to_read, sizeof(struct problem));
     debug("===============================");

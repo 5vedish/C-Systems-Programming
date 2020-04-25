@@ -37,12 +37,10 @@ void sigchild_handler(int sig){ //SIGCHLD handler
             if (statuses[pid_index] == WORKER_STARTED){
                 sf_change_state(pid,statuses[pid_index], WORKER_IDLE);
                 statuses[pid_index] = WORKER_IDLE;
-                debug("1 HIT THE FIRST");
             } else {
                 //else it went from running -> stopped
                 sf_change_state(pid,statuses[pid_index], WORKER_STOPPED);
                 statuses[pid_index] = WORKER_STOPPED;
-                debug("2 HIT THE SECOND");
             }
         }
 
@@ -52,12 +50,10 @@ void sigchild_handler(int sig){ //SIGCHLD handler
             //if it exited normally
             sf_change_state(pid,statuses[pid_index], WORKER_EXITED);
             statuses[pid_index] = WORKER_EXITED;
-            debug("3 HIT THE THIRD%i", pid_index);
         } else if (i == EXIT_FAILURE) {
             //there was an issue and it was aborted
             sf_change_state(pid,statuses[pid_index], WORKER_ABORTED);
             statuses[pid_index] = WORKER_ABORTED;
-            debug("4 HIT THE FOURTH");
         }
 
     }
@@ -129,7 +125,6 @@ int master(int workers) {
                 done = 1;
                 for (i = 0; i < workers; i++){ //send sigterm first and then sigcont
                     Kill(wrk_arr[i], SIGTERM);
-                    debug("THIS KEEPS RUNNING!");
                     Kill(wrk_arr[i], SIGCONT);
                 }
        } 
@@ -147,7 +142,6 @@ int master(int workers) {
 
     for (i = 0; i < workers; i++){
         if(statuses[i] == WORKER_CONTINUED){ //if it's continued, send it the problem
-            debug("%lu", prb_arr[i] -> size);
             if (!done){
                 Write(fd[i*workers+1], prb_arr[i], prb_arr[i] -> size); //writing from write end of master
                 sf_send_problem(wrk_arr[i], prb_arr[i]);
@@ -158,30 +152,28 @@ int master(int workers) {
     for (i = 0; i < workers; i++){
         if(statuses[i] == WORKER_CONTINUED && statuses[i] != WORKER_STOPPED){ //if it has already solved it or is continuing
             statuses[i] = WORKER_RUNNING; //set workers to running, as they are solving problems
-            debug("SOMETHING WAS SET TO RUNNING!");
+            debug("A WORKER WAS SET TO RUNNING!");
         } 
     }
 
     for (i = 0; i < workers; i++){
         if (statuses[i] == WORKER_STOPPED){ //if it's stopped, check result
-        debug("SOLUTION CHECKING HAPPENED!");
             struct result *solution = Malloc(sizeof(struct result));
             Read(fd[i*workers+2], solution, sizeof(struct result));
-            debug("MASTER HAS READ!");
 
             if (solution -> failed > 0){ //if it wasn't canceled 
                 ((solution -> size - sizeof(struct result)) == 0) ? 0 : Realloc(solution, solution -> size); //read if there's a data section
                 ((solution -> size - sizeof(struct result)) == 0) ? 0 : Read(fd[i], solution -> data, solution -> size - sizeof(struct result));
             }
-
+            debug("++++++++++++++++++++++++++++++++++++++++++++++++");
             if (post_result(solution, prb_arr[i]) == 0){ //if the result is correct, cancel other works
                 snd_sig(workers, SIGHUP, i);
-                for (i = 0; i < workers; i++){
+                for (i = 1; i < workers; i++){
                     Free(prb_arr[i]); //freeing the problems that were malloced
                 }
-                Free(solution);
             }
-
+            Free(solution);
+        debug("SOLUTION CHECKING HAPPENED!");
         }
     }
 
