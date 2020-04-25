@@ -27,7 +27,7 @@ void sigterm_handler(int sig){ //terminate child process via exit
  * (See polya.h for specification.)
  */
 int worker(void) {
-    debug("SUCCESSFULLY ENTERED WORKER!");
+    debug("SUCCESSFULLY ENTERED WORKER %u!", getpid());
 
     Signal(SIGHUP, sighup_handler); //signal handlers
     Signal(SIGTERM, sigterm_handler);
@@ -37,10 +37,9 @@ int worker(void) {
     debug("RESUMED!");
 
     while (1){
-    debug("ENTERED LOOP FOR WORKER!");
+    debug("ENTERED LOOP FOR WORKER %u!", getpid());
     struct problem *to_read = Malloc(sizeof(struct problem)); //make space for problem
 
-    debug("HANG BEFORE READ");
     //read from master process
     Read(STDIN_FILENO, to_read, sizeof(struct problem));
     debug("===============================");
@@ -48,7 +47,6 @@ int worker(void) {
     to_read = Realloc(to_read, to_read -> size); //make space for the follow info
     //read the following data
     ((to_read -> size - sizeof(struct problem)) == 0) ? 0 : Read(STDIN_FILENO, to_read -> data, to_read -> size - sizeof(struct problem)); //don't read twice if size is 0
-
 
     if (to_read -> type == NULL_PROBLEM_TYPE){ //for problem type 0
         exit(EXIT_SUCCESS);

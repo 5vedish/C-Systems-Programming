@@ -83,28 +83,28 @@ int master(int workers) {
     pid_t pid;
     for (i = 0; i < workers; i++){ //generating the workers
         pipe(temp_fd);
-        fd[i*workers] = temp_fd[0];
-        fd[i*workers+1] = temp_fd[1]; //setting up the read and write pipes for master
+        fd[i*4] = temp_fd[0];
+        fd[i*4+1] = temp_fd[1]; //setting up the read and write pipes for master
 
         pipe(temp_fd);
-        fd[i*workers+2] = temp_fd[0];
-        fd[i*workers+3] = temp_fd[1]; //setting up the read and write pipes for worker
+        fd[i*4+2] = temp_fd[0];
+        fd[i*4+3] = temp_fd[1]; //setting up the read and write pipes for worker
 
         statuses[i] = WORKER_STARTED;
         if((pid = Fork()) == 0){ 
-            dup2(fd[i*workers], STDIN_FILENO); 
-            dup2(fd[i*workers+3], STDOUT_FILENO); //redirecting input and output in worker processes
+            dup2(fd[i*4], STDIN_FILENO); 
+            dup2(fd[i*4+3], STDOUT_FILENO); //redirecting input and output in worker processes
 
             char *argv[1];
             argv[0] = NULL;
             execl("bin/polya_worker", argv[0], (char *) NULL); //execute the workers
 
-            Close(fd[i*workers+1]);
-            Close(fd[i*workers+2]); //close fds for master in worker
+            Close(fd[i*4+1]);
+            Close(fd[i*4+2]); //close fds for master in worker
         } else{
             wrk_arr[i] = pid; //save the pid in the worker
-            Close(fd[i*workers]);
-            Close(fd[i*workers+3]); //close fds for worker in master
+            Close(fd[i*4]);
+            Close(fd[i*4+3]); //close fds for worker in master
         }
     }
 
@@ -112,13 +112,14 @@ int master(int workers) {
 
     //main loop
     while (1){
-
+//ALL EXITED
     if (chk_stt(WORKER_EXITED, workers, workers) == 1){
         debug("you did a great job");
         sf_end();
         return EXIT_SUCCESS;
         }
-
+//ALL EXITED
+//ALL IDLE
     if (chk_stt(WORKER_IDLE, workers, workers)){ //if they are all stopped
         if (!done){
             if (ass_prb(workers) == -1){ //assigning the problems and if no more problems
@@ -139,59 +140,56 @@ int master(int workers) {
        }
 
     }
-
+//ALL IDLE
+//ALL CONTINUED
     for (i = 0; i < workers; i++){
         if(statuses[i] == WORKER_CONTINUED){ //if it's continued, send it the problem
             if (!done){
-                Write(fd[i*workers+1], prb_arr[i], prb_arr[i] -> size); //writing from write end of master
+                debug("%lu", prb_arr[i] -> size);
+                Write(fd[i*4+1], prb_arr[i], prb_arr[i] -> size); //writing from write end of master
                 sf_send_problem(wrk_arr[i], prb_arr[i]);
             }
         }
     }   
-
     for (i = 0; i < workers; i++){
         if(statuses[i] == WORKER_CONTINUED && statuses[i] != WORKER_STOPPED){ //if it has already solved it or is continuing
             statuses[i] = WORKER_RUNNING; //set workers to running, as they are solving problems
             debug("A WORKER WAS SET TO RUNNING!");
         } 
     }
-
+//ALL CONTINUED
+//IF STOPPED
     for (i = 0; i < workers; i++){
         if (statuses[i] == WORKER_STOPPED){ //if it's stopped, check result
             struct result *solution = Malloc(sizeof(struct result));
-            Read(fd[i*workers+2], solution, sizeof(struct result));
+            Read(fd[i*4+2], solution, sizeof(struct result));
 
             if (solution -> failed > 0){ //if it wasn't canceled 
                 ((solution -> size - sizeof(struct result)) == 0) ? 0 : Realloc(solution, solution -> size); //read if there's a data section
-                ((solution -> size - sizeof(struct result)) == 0) ? 0 : Read(fd[i], solution -> data, solution -> size - sizeof(struct result));
+                ((solution -> size - sizeof(struct result)) == 0) ? 0 : Read(fd[i*workers+2], solution -> data, solution -> size - sizeof(struct result));
             }
-            debug("++++++++++++++++++++++++++++++++++++++++++++++++");
-            if (post_result(solution, prb_arr[i]) == 0){ //if the result is correct, cancel other works
+            if (post_result(solution, prb_arr[i]) == 0){ //if the result is correct, cancel other workers
                 snd_sig(workers, SIGHUP, i);
                 for (i = 1; i < workers; i++){
                     Free(prb_arr[i]); //freeing the problems that were malloced
                 }
             }
             Free(solution);
-        debug("SOLUTION CHECKING HAPPENED!");
+        debug("SOLUTION CHECKING HAPPENED FOR WORKER %d", i);
         }
     }
-
+//IF STOPPED
+//IF ALL STOPPED
     if (chk_stt(WORKER_STOPPED, workers, workers)){ //set them all to idle after they are all stopped
         for(i = 0; i < workers; i++){
             statuses[i] = WORKER_IDLE;
             sf_change_state(wrk_arr[i], WORKER_STOPPED, WORKER_IDLE);
         }
     }
-
-
+//IF ALL STOPPED
     if (chk_stt(WORKER_ABORTED, workers, workers) == 1){ //if any of them aborted
         break;
     }
-
-    
-
-    // debug("IT'S HIT END OF MAIN LOOP");
 
     }
     debug("it's ok, you can try again");
