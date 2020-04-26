@@ -68,8 +68,8 @@ void sigpipe_handler(int sig){ //SIGPIPE handler, to preserve master
  */
 int master(int workers) {
 
-    extern int sf_suppress_chatter;
-    sf_suppress_chatter = 1;
+    // extern int sf_suppress_chatter;
+    // sf_suppress_chatter = 1;
 
     sf_start(); //beginning of function
 
@@ -112,6 +112,7 @@ int master(int workers) {
     //main loop
     while (1){
 
+
 //ALL EXITED
     if (chk_stt(WORKER_EXITED, workers, workers) == 1){
         sf_end();
@@ -121,6 +122,18 @@ int master(int workers) {
 
 //ALL IDLE
     if (chk_stt(WORKER_IDLE, workers, workers)){ //if they are all idle
+
+    if (done){
+                for(i = 0; i < workers; i++){
+                    //send sigterm first and then sigcont
+ 
+                    statuses[i] = WORKER_RUNNING;
+                    sf_change_state(wrk_arr[i], WORKER_IDLE, WORKER_RUNNING);
+                    Kill(wrk_arr[i], SIGTERM);
+                    Kill(wrk_arr[i], SIGCONT);
+                }
+            }
+
         if (!done){
             int i; //counter
             for (i = 0; i < workers; i++){
@@ -129,42 +142,31 @@ int master(int workers) {
                 done = 1;
                 break;          
                 //no more problems
-                    }       
-        }
+                    }   
 
-            if (done){
-                for(i = 0; i < workers; i++){
-                    //send sigterm first and then sigcont
-                    statuses[i] = WORKER_RUNNING;
-                    sf_change_state(wrk_arr[i], WORKER_IDLE, WORKER_RUNNING);
-                    Kill(wrk_arr[i], SIGTERM);
-                    Kill(wrk_arr[i], SIGCONT);
-                }
-            }
-
-        }
-
-       if (!done){
-           for (i = 0; i < workers; i++){
+          
+                if (!done){
                 Kill(wrk_arr[i], SIGCONT); //resume the workers
                 statuses[i] = WORKER_CONTINUED;
                 sf_change_state(wrk_arr[i], WORKER_IDLE, WORKER_CONTINUED);
+            
+
+            if(statuses[i] == WORKER_CONTINUED){ //if it's continued, send it the problem
+                Write(fd[i*4+1], to_write[i], to_write[i] -> size); //writing from write end of master 
+                sf_send_problem(wrk_arr[i], to_write[i]);
+            
+            
             }
-       }
+                }
+                
+        }
+        }
 
     }
 //ALL IDLE
 
 //ALL CONTINUED
-    if (!done){
-            for (i = 0; i < workers; i++){
-        if(statuses[i] == WORKER_CONTINUED){ //if it's continued, send it the problem
-            if (!done){
-                Write(fd[i*4+1], to_write[i], to_write[i] -> size); //writing from write end of master 
-                sf_send_problem(wrk_arr[i], to_write[i]);
-            }
-        }
-    }   
+    if (!done){  
     for (i = 0; i < workers; i++){
         if(statuses[i] == WORKER_CONTINUED && statuses[i] != WORKER_STOPPED){ //if it has already solved it or is continuing
             statuses[i] = WORKER_RUNNING; //set workers to running, as they are solving problems
