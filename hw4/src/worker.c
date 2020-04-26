@@ -48,10 +48,6 @@ int worker(void) {
     //read the following data
     ((to_read -> size - sizeof(struct problem)) == 0) ? 0 : Read(STDIN_FILENO, to_read -> data, to_read -> size - sizeof(struct problem)); //don't read twice if size is 0
 
-    if (to_read -> type == NULL_PROBLEM_TYPE){ //for problem type 0
-        exit(EXIT_SUCCESS);
-    }
-
     debug("PROBLEM WAS READ!");
 
     //attempt to solve the problem
@@ -78,7 +74,8 @@ int worker(void) {
     Free(to_write); //freeing the result
     debug("WRITING RESULT!");
 
-    raise(SIGSTOP); //stop itself after sending result    
+    raise(SIGSTOP); //stop itself after sending result
+    debug("++++++++++++++++WORKER HAS AWOKEN+++++++++++++++++++++");    
     }
     
     // TO BE IMPLEMENTED
