@@ -17,7 +17,6 @@ void sighup_handler(int sig){ //just setting the flag
 }
 
 void sigterm_handler(int sig){ //terminate child process via exit  
-    debug("WORKER TERMINATED");
     _exit(EXIT_SUCCESS);
 }
 
@@ -27,28 +26,21 @@ void sigterm_handler(int sig){ //terminate child process via exit
  * (See polya.h for specification.)
  */
 int worker(void) {
-    debug("SUCCESSFULLY ENTERED WORKER %u!", getpid());
 
     Signal(SIGHUP, sighup_handler); //signal handlers
     Signal(SIGTERM, sigterm_handler);
 
-    debug("WAITING TO RESUME!");
     raise(SIGSTOP); //stop itself after initialization
-    debug("RESUMED!");
 
     while (1){
-    debug("ENTERED LOOP FOR WORKER %u!", getpid());
     struct problem *to_read = Malloc(sizeof(struct problem)); //make space for problem
 
     //read from master process
     Read(STDIN_FILENO, to_read, sizeof(struct problem));
-    debug("===============================");
 
     to_read = Realloc(to_read, to_read -> size); //make space for the follow info
     //read the following data
     ((to_read -> size - sizeof(struct problem)) == 0) ? 0 : Read(STDIN_FILENO, to_read -> data, to_read -> size - sizeof(struct problem)); //don't read twice if size is 0
-
-    debug("PROBLEM WAS READ!");
 
     //attempt to solve the problem
     struct result *to_write = solvers[to_read -> type].solve(to_read, &canceled);
@@ -72,10 +64,8 @@ int worker(void) {
 
     ((to_write -> size - sizeof(struct result)) == 0) ? 0 : Write(STDOUT_FILENO, to_write -> data, to_write -> size - sizeof(struct result)); //don't write twice if size is 0
     Free(to_write); //freeing the result
-    debug("WRITING RESULT!");
 
-    raise(SIGSTOP); //stop itself after sending result
-    debug("++++++++++++++++WORKER HAS AWOKEN+++++++++++++++++++++");    
+    raise(SIGSTOP); //stop itself after sending result  
     }
     
     // TO BE IMPLEMENTED
