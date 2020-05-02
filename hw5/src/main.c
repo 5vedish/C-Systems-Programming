@@ -16,7 +16,7 @@
 static void terminate(int status);
 
 //My Includes
-#include <signal.h>
+
 #include <unistd.h>
 #include <csapp.h>
 
@@ -24,6 +24,10 @@ static void terminate(int status);
 void sighup_handler(int sig){
     terminate(EXIT_FAILURE);
 }
+
+//My Macros/Declarations
+#define MAX_DIGITS_PORT_NUM 5
+void *thread(void *vargp);
 
 /*
  * "PBX" telephone exchange simulation.
@@ -37,12 +41,22 @@ int main(int argc, char* argv[]){
 
     //to check for proper flag and take in port number
     extern char *optarg;
-    int c, port_num = 1024;
+    int c, d, port_num = 0;
     while ((c = getopt(argc, argv, "p:")) != EOF){
         switch(c){
-            case 'p':
-                port_num = *optarg;
-            default:
+            case 'p':{
+                for (int i = 0; i < MAX_DIGITS_PORT_NUM; i++){
+                    d = *(optarg+i);
+                    if (d == 0){
+                        break;
+                    }
+                    port_num *= 10;
+                    port_num += (d-48); //grabbing proper digit
+                }
+                break;
+            }
+                
+            default: 
                 exit(EXIT_FAILURE);
         }
     }
@@ -59,7 +73,7 @@ int main(int argc, char* argv[]){
 
     Signal(SIGHUP, sighup_handler); //handle sighup for graceful termination
 
-    int listenfd, *connfdp; //the descriptor the listen to and the connected descriptor
+    int listenfd, *connfdp; //the descriptor to listen to and the connected descriptor
     socklen_t clientlen; //length of socket address
     struct sockaddr_storage clientaddr; //address of socket
     pthread_t tid; //identify thread
@@ -70,7 +84,7 @@ int main(int argc, char* argv[]){
         clientlen = sizeof(struct sockaddr_storage); //hold size of storage
         connfdp = Malloc(sizeof(int)); //store fd
         *connfdp = Accept(listenfd, (SA *) &clientaddr, &clientlen); //accept connections
-        pthread_create(&tid, NULL, pbx_client_service(connfdp), connfdp); //create a new thread for each connection
+        pthread_create(&tid, NULL, thread, connfdp); //create a new thread for each connection
     }
 
     fprintf(stderr, "You have to finish implementing main() "
@@ -87,4 +101,11 @@ void terminate(int status) {
     pbx_shutdown(pbx);
     debug("PBX server terminating");
     exit(status);
+}
+
+//Thread Function
+void *thread(void *vargp){
+    pthread_detach(pthread_self()); //detaching itself from other threads
+    pbx_client_service(vargp); //passing the descriptor from which to communicate from
+    return NULL;
 }
