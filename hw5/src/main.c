@@ -27,7 +27,6 @@ void sighup_handler(int sig){
 
 //My Macros/Declarations
 #define MAX_DIGITS_PORT_NUM 5
-void *thread(void *vargp);
 
 /*
  * "PBX" telephone exchange simulation.
@@ -84,7 +83,7 @@ int main(int argc, char* argv[]){
         clientlen = sizeof(struct sockaddr_storage); //hold size of storage
         connfdp = Malloc(sizeof(int)); //store fd
         *connfdp = Accept(listenfd, (SA *) &clientaddr, &clientlen); //accept connections
-        pthread_create(&tid, NULL, thread, connfdp); //create a new thread for each connection
+        pthread_create(&tid, NULL, pbx_client_service, connfdp); //create a new thread for each connection
     }
 
     fprintf(stderr, "You have to finish implementing main() "
@@ -101,11 +100,4 @@ void terminate(int status) {
     pbx_shutdown(pbx);
     debug("PBX server terminating");
     exit(status);
-}
-
-//Thread Function
-void *thread(void *vargp){
-    pthread_detach(pthread_self()); //detaching itself from other threads
-    pbx_client_service(vargp); //passing the descriptor from which to communicate from
-    return NULL;
 }
