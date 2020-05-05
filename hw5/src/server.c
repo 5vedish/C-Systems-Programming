@@ -129,6 +129,8 @@ void *pbx_client_service(void *arg){
     Free(fin_str);
     Free(temp);
 
+    pbx_unregister(pbx, tel); //unregister the telephone
+
 
 
     Close(connfd); //closing the file descriptor
