@@ -16,8 +16,6 @@
 static void terminate(int status);
 
 //My Includes
-
-#include <unistd.h>
 #include <csapp.h>
 
 //Signal Handlers
@@ -83,7 +81,7 @@ int main(int argc, char* argv[]){
         clientlen = sizeof(struct sockaddr_storage); //hold size of storage
         connfdp = Malloc(sizeof(int)); //store fd
         *connfdp = Accept(listenfd, (SA *) &clientaddr, &clientlen); //accept connections
-        pthread_create(&tid, NULL, pbx_client_service, connfdp); //create a new thread for each connection
+        Pthread_create(&tid, NULL, pbx_client_service, connfdp); //create a new thread for each connection
     }
 
     fprintf(stderr, "You have to finish implementing main() "
