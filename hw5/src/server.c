@@ -45,14 +45,25 @@ void *pbx_client_service(void *arg){
 
     int f_cnt = 1; //counter for reallocation
     int ext = 0; //veriable for extension
+    int end, done = 0; //for breaking out of loop
     
     do {
 
         fin_str = Realloc(fin_str, ++f_cnt); //reallocating for space
-        Read(connfd, temp, 1); //read the char in
+        end = Read(connfd, temp, 1); //read the char in
+        if (end == 0){
+            debug("IT HITS THE END");
+            done = 1;
+            break;
+        }
         strcat(fin_str, temp); //add the parsed char to the overall string
 
     } while (*temp != '\n'); //stop if reaches the end
+
+    if (done == 1){
+        debug("IT HITS THIS THING");
+        break; //end the loop if done
+    }
     
     if (strcmp(fin_str, pickup) == 0){ //if the command is pickup
         debug("THIS WORKS");
@@ -112,6 +123,7 @@ void *pbx_client_service(void *arg){
     *fin_str = '\0'; //reset null terminator
 
     }
+    debug("YOU'VE SUCCESFFULLY CLOSED IT");
 
     //freeing the pointers used
     Free(fin_str);
