@@ -15,7 +15,6 @@
 
 //My Includes
 #include <csapp.h>
-#include <semaphore.h>
 
 struct tu{
     TU_STATE cur_stt; //current state
@@ -34,7 +33,9 @@ struct pbx{
 PBX *pbx_init(){
     PBX new_pbx; //declaring new struct
     pbx = &new_pbx; //putting struct into global
-    Sem_init(&pbx -> fun_lck, 0, 1); //initializing the semaphore for function locks
+    debug("%p", &pbx -> fun_lck);
+    debug("%p", &new_pbx.fun_lck);
+    sem_init(&(pbx -> fun_lck), 0, 1); //initializing the semaphore for function locks
     pbx -> curr_ext = 0; //current extensions are zero
     return pbx;
 }
@@ -48,23 +49,26 @@ TU *pbx_register(PBX *pbx, int fd){
     if (pbx -> curr_ext == PBX_MAX_EXTENSIONS){ //if full
         return NULL;
     }
-
-    P(&pbx -> fun_lck); 
+    
+    P(&(pbx -> fun_lck)); 
+    debug("%p", &(pbx -> fun_lck));
 
     TU new_tu; //declaring new struct
     new_tu.cur_stt = TU_ON_HOOK; //telephone units start off on hook
     new_tu.fd_ext = fd; //setting fd and extension as the same value
     pbx -> tel_units[pbx -> curr_ext++] = new_tu; //assigned the tu to the proper position in the array
-    Sem_init(&new_tu.stt_lck, 0, 1); //intializing semaphore for state locks
+    sem_init(&new_tu.stt_lck, 0, 1); //intializing semaphore for state locks
 
-    char *hook_msg = "ON HOOK "; //getting the message to print on client
-    char *ext = (char *) fd + 48;
-    strcat(hook_msg, ext);
-    if (Write(fd, hook_msg, strlen(hook_msg)) == 0){
+    char *hook_msg = Malloc(100);
+    sprintf(hook_msg, "ON HOOK %d\n", fd); //adding extension number to the string
+
+    if (Write(fd, hook_msg, strlen(hook_msg)) == 0){ //getting the message to print on client
         return NULL;
     }
 
-    V(&pbx -> fun_lck);
+    Free(hook_msg); //freeing the string
+    debug("%p", &(pbx -> fun_lck));
+    V(&(pbx -> fun_lck));
     
     return &pbx -> tel_units[(pbx -> curr_ext) -1]; //returning the address in the array
 }
@@ -79,12 +83,12 @@ int pbx_unregister(PBX *pbx, TU *tu){
 
     int i; //counter
     for (i = 0; i < PBX_MAX_EXTENSIONS; i++){
-        if ((&pbx -> tel_units)[i] == tu -> fd_ext){
+        if ((*pbx).tel_units[i].fd_ext == (tu -> fd_ext)){
             break;
         }
     }
 
-    for ( i; i < PBX_MAX_EXTENSIONS-1; i++){ //shifting the TU's over
+    for ( ; i < PBX_MAX_EXTENSIONS-1; i++){ //shifting the TU's over
         pbx -> tel_units[i] = pbx -> tel_units[i+1];
     }
 
@@ -104,19 +108,19 @@ int tu_extension(TU *tu){
 }
 
 int tu_pickup(TU *tu){
-
+    return 0;
 }
 
 int tu_hangup(TU *tu){
-
+    return 0;
 }
 
 int tu_dial(TU *tu, int ext){
-
+    return 0;
 }
 
 int tu_chat(TU *tu, char *msg){
-
+    return 0;
 }
 
 
