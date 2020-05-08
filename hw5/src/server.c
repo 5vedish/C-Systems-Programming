@@ -35,7 +35,7 @@ void *pbx_client_service(void *arg){
     char *pickup = "pickup\r\n"; //strings to compare to
     char *hangup = "hangup\r\n";
     char *dial = "dial ";
-    char *chat = "chat "; 
+    char *chat = "chat"; 
 
     int ext_temp; //temp for extension
 
@@ -103,13 +103,13 @@ void *pbx_client_service(void *arg){
         debug("%d", ext);
         tu_dial(tel, ext);
 
-    } else if (strncmp(fin_str, chat, 5) == 0){
+    } else if (strncmp(fin_str, chat, 4) == 0){
         debug("CHAT WORKS");
         char *chat_str = Malloc(strlen(fin_str)); //allocate everything but the two escape chars
         strncpy(chat_str, fin_str, strlen(fin_str)-2); //copy everything but the escapes
         *(chat_str + strlen(fin_str) - 2) = '\0'; //manually setting null terminator
 
-        int start = 5; //where the actual message starts from
+        int start = 4; //where the actual message starts from
         while (*(chat_str+start) == ' '){
             start++;
         }
