@@ -20,7 +20,7 @@ static void terminate(int status);
 
 //Signal Handlers
 void sighup_handler(int sig){
-    terminate(EXIT_FAILURE);
+    terminate(EXIT_SUCCESS);
 }
 
 //My Macros/Declarations
