@@ -52,7 +52,6 @@ void *pbx_client_service(void *arg){
         fin_str = Realloc(fin_str, ++f_cnt); //reallocating for space
         end = Read(connfd, temp, 1); //read the char in
         if (end == 0){
-            debug("IT HITS THE END");
             done = 1;
             break;
         }
@@ -61,20 +60,16 @@ void *pbx_client_service(void *arg){
     } while (*temp != '\n'); //stop if reaches the end
 
     if (done == 1){
-        debug("IT HITS THIS THING");
         break; //end the loop if done
     }
     
     if (strcmp(fin_str, pickup) == 0){ //if the command is pickup
-        debug("THIS WORKS");
         tu_pickup(tel);
 
     } else if (strcmp(fin_str, hangup) == 0){ //if the command is hangup
-        debug("THIS WORKS HANGUP");
         tu_hangup(tel);
 
     } else if (strncmp(fin_str, dial, 5) == 0){ // if the command is dial #
-        debug("DIAL WORKS");
 
         int sec_spc = 0; //to detect the second space
         int d_cnt = 5;
@@ -82,7 +77,6 @@ void *pbx_client_service(void *arg){
         while ( (ext_temp = *(fin_str+(d_cnt++))) != '\r'){
 
             if ((ext_temp < 48 || ext_temp > 57) && ext_temp != ' '){ //throw it an error if it's not a digit or space
-                debug("GIVE IT AN ERROR");
                 ext = -1; 
                 break; 
             } else if (ext_temp == ' '){
@@ -91,7 +85,6 @@ void *pbx_client_service(void *arg){
                     break;
                 }
 
-                debug("HIT LEADING SPACE");
             } else{
                 ext *= 10;
                 ext += (ext_temp - 48);
@@ -100,11 +93,9 @@ void *pbx_client_service(void *arg){
             
         }
         //dial the extension
-        debug("%d", ext);
         tu_dial(tel, ext);
 
     } else if (strncmp(fin_str, chat, 4) == 0){
-        debug("CHAT WORKS");
         char *chat_str = Malloc(strlen(fin_str)); //allocate everything but the two escape chars
         strncpy(chat_str, fin_str, strlen(fin_str)-2); //copy everything but the escapes
         *(chat_str + strlen(fin_str) - 2) = '\0'; //manually setting null terminator
@@ -113,8 +104,6 @@ void *pbx_client_service(void *arg){
         while (*(chat_str+start) == ' '){
             start++;
         }
-        debug("%d", start);
-        debug("%s", chat_str);
         tu_chat(tel, chat_str+start); //to get rid of the spaces
         Free(chat_str); //free the string to chat
 
@@ -123,16 +112,13 @@ void *pbx_client_service(void *arg){
     *fin_str = '\0'; //reset null terminator
 
     }
-    debug("YOU'VE SUCCESFFULLY CLOSED IT");
 
     //freeing the pointers used
     Free(fin_str);
     Free(temp);
 
     pbx_unregister(pbx, tel); //unregister the telephone
-
-
-
+    
     Close(connfd); //closing the file descriptor
 
     return NULL;
