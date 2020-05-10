@@ -37,16 +37,6 @@ PBX *pbx_init(){
     return new_pbx;
 }
 
-void pbx_shutdown(PBX *pbx){
-    P(&pbx -> fun_lck);
-
-    for ( int i = 0; i < PBX_MAX_EXTENSIONS; i++){
-
-    }
-    V(&pbx -> fun_lck);
-    Free(pbx);
-}
-
 TU *pbx_register(PBX *pbx, int fd){
     P(&pbx -> fun_lck); //lock pbx
     char *hook_msg = Malloc(50);
@@ -287,6 +277,18 @@ int tu_chat(TU *tu, char *msg){
     Free(p_msg);
 
     return 0;
+}
+
+void pbx_shutdown(PBX *pbx){
+
+    for (int i = 0; i < PBX_MAX_EXTENSIONS; i++){ //unregister all tus
+        if (pbx -> tel_units[i] != NULL){
+            TU* tu = pbx -> tel_units[i];
+            pbx_unregister(pbx, tu);
+        }
+    }
+                
+    Free(pbx);
 }
 
 
