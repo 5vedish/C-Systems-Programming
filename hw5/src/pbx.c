@@ -151,6 +151,15 @@ int tu_pickup(TU *tu){
         V(&other_tu -> stt_lck);
         sprintf(msg, "%s %d\n", tu_state_names[5], tu -> fd_ext);
         Write(other_tu -> fd_ext, msg, strlen(msg)); //connected
+    } else {
+
+        if (tu -> cur_stt == TU_CONNECTED){
+            sprintf(msg, "%s %d\n", tu_state_names[5], other_tu -> fd_ext);
+            Write(tu -> fd_ext, msg, strlen(msg)); //connected
+        } else {
+            sprintf(msg, "%s\n", tu_state_names[tu -> cur_stt]);
+            Write(tu -> fd_ext, msg, strlen(msg));
+        }
     }
     V(&tu -> stt_lck);
 
@@ -182,6 +191,12 @@ int tu_hangup(TU *tu){
         V(&tu -> stt_lck);
         sprintf(msg, "%s %d\n", tu_state_names[0], tu -> fd_ext);
         Write(tu -> fd_ext, msg, strlen(msg)); //on hook
+        Free(msg);
+        return 0;
+    } else if (tu -> cur_stt == TU_ON_HOOK){
+        sprintf(msg, "%s %d\n", tu_state_names[0], tu -> fd_ext);
+        Write(tu -> fd_ext, msg, strlen(msg)); //on hook
+        V(&tu -> stt_lck);
         Free(msg);
         return 0;
     } 
@@ -231,7 +246,7 @@ int tu_dial(TU *tu, int ext){
         }
     }
     P(&tu -> stt_lck);
-    if (i == PBX_MAX_EXTENSIONS){ //if it wasn't found
+    if ((i == PBX_MAX_EXTENSIONS && tu -> cur_stt == TU_DIAL_TONE) || (tu -> cur_stt == TU_DIAL_TONE && ext == tu -> fd_ext)){ //if it wasn't found
         tu -> cur_stt = TU_ERROR;
         V(&tu -> stt_lck);
         sprintf(msg, "%s\n", tu_state_names[6]);
@@ -262,6 +277,17 @@ int tu_dial(TU *tu, int ext){
             Write(tu -> fd_ext, msg, strlen(msg)); //busy signal
         }
 
+    } else {
+        if (tu -> cur_stt == TU_CONNECTED){
+            sprintf(msg, "%s %d\n", tu_state_names[5], other_tu -> fd_ext);
+            Write(tu -> fd_ext, msg, strlen(msg)); //ringing
+        } else if (tu -> cur_stt == TU_ON_HOOK){
+            sprintf(msg, "%s %d\n", tu_state_names[0], tu -> fd_ext);
+            Write(tu -> fd_ext, msg, strlen(msg)); //ringing
+        } else {
+            sprintf(msg, "%s\n", tu_state_names[tu -> cur_stt]);
+            Write(tu -> fd_ext, msg, strlen(msg)); //ringing
+        }
     }
     V(&tu -> stt_lck);
     Free(msg);
@@ -271,20 +297,30 @@ int tu_dial(TU *tu, int ext){
 
 int tu_chat(TU *tu, char *msg){
     char *p_msg = Malloc(50);
-
+    debug("1");
     P(&tu -> stt_lck);
     if (tu -> cur_stt != TU_CONNECTED){
+        debug("5");
+        if (tu -> cur_stt == TU_ON_HOOK){
+            sprintf(p_msg, "%s %d\n", tu_state_names[0], tu -> fd_ext);
+            Write(tu -> fd_ext, p_msg, strlen(p_msg)); //on hook
+        } else {
+            sprintf(p_msg, "%s\n", tu_state_names[tu -> cur_stt]);
+            Write(tu -> fd_ext, p_msg, strlen(p_msg));
+        }
+
+        V(&tu -> stt_lck);
         Free(p_msg);
         return -1;
     }
     V(&tu -> stt_lck);
-
-    sprintf(p_msg, "chat %s\n", msg);
+    debug("2");
+    sprintf(p_msg, "CHAT %s\n", msg);
     Write(tu -> conn, p_msg, strlen(p_msg)); //send message
-    
+    debug("3");
     sprintf(p_msg, "%s %d\n", tu_state_names[5], tu -> conn);
     Write(tu -> fd_ext, p_msg, strlen(p_msg)); //connected
-
+    debug("4");
     Free(p_msg);
 
     return 0;
@@ -298,6 +334,8 @@ void pbx_shutdown(PBX *pbx){
             pbx_unregister(pbx, tu);
         }
     }
+
+    while(pbx -> tel_units[0] != NULL);
                 
     Free(pbx);
 }
