@@ -66,7 +66,6 @@ TU *pbx_register(PBX *pbx, int fd){
 
 int pbx_unregister(PBX *pbx, TU *tu){
     P(&pbx -> fun_lck); //lock pbx
-    debug("%d%d%s", tu -> fd_ext, tu -> conn, tu_state_names[tu -> cur_stt]);
 
     if (pbx -> curr_ext == 0){ //if empty
         return -1;
@@ -88,14 +87,14 @@ int pbx_unregister(PBX *pbx, TU *tu){
             }
         }
         TU *other_tu = pbx -> tel_units[j];
-        debug("%d!!!!!!!!!!!!!", other_tu -> fd_ext);
+        P(&other_tu -> stt_lck);
         tu -> conn = -1;
         other_tu -> conn = -1; //sever the connection
         other_tu -> cur_stt = TU_ON_HOOK;
+        V(&other_tu -> stt_lck);
         sprintf(msg, "%s %d\n", tu_state_names[0], other_tu -> fd_ext);
         Write(other_tu -> fd_ext, msg, strlen(msg)); //on hook
         Free(msg);
-        debug("%d%d%s", other_tu -> fd_ext, other_tu -> conn, tu_state_names[other_tu -> cur_stt]);
     }
 
     Free(pbx -> tel_units[i]);
@@ -135,7 +134,7 @@ int tu_pickup(TU *tu){
 
         other_tu = pbx -> tel_units[i]; 
     }
-
+    P(&tu -> stt_lck);
     if (tu -> cur_stt == TU_ON_HOOK){ //on hook to dial tone
         tu -> cur_stt = TU_DIAL_TONE;
         sprintf(msg, "%s\n", tu_state_names[2]);
@@ -147,10 +146,13 @@ int tu_pickup(TU *tu){
         sprintf(msg, "%s %d\n", tu_state_names[5], other_tu -> fd_ext);
         Write(tu -> fd_ext, msg, strlen(msg)); //connected
 
+        P(&other_tu -> stt_lck);
         other_tu -> cur_stt = TU_CONNECTED;
+        V(&other_tu -> stt_lck);
         sprintf(msg, "%s %d\n", tu_state_names[5], tu -> fd_ext);
         Write(other_tu -> fd_ext, msg, strlen(msg)); //connected
     }
+    V(&tu -> stt_lck);
 
     Free(msg);
 
@@ -174,15 +176,17 @@ int tu_hangup(TU *tu){
 
         other_tu = pbx -> tel_units[i]; 
     }
-
+    P(&tu -> stt_lck);
     if ((tu -> cur_stt == TU_DIAL_TONE) || (tu -> cur_stt == TU_BUSY_SIGNAL) || (tu -> cur_stt == TU_ERROR)){ //dial tone or busy or error back to on hook
         tu -> cur_stt = TU_ON_HOOK;
+        V(&tu -> stt_lck);
         sprintf(msg, "%s %d\n", tu_state_names[0], tu -> fd_ext);
         Write(tu -> fd_ext, msg, strlen(msg)); //on hook
         Free(msg);
         return 0;
     } 
 
+    P(&other_tu -> stt_lck);
     if ((tu -> cur_stt == TU_CONNECTED) || (tu -> cur_stt == TU_RINGING)){ //connected or ringing to dial tone
         tu -> conn = -1; //reset connections
         other_tu -> conn = -1;
@@ -197,8 +201,10 @@ int tu_hangup(TU *tu){
         sprintf(msg, "%s %d\n", tu_state_names[0], other_tu -> fd_ext);
         Write(other_tu -> fd_ext, msg, strlen(msg)); //on hook
     }
+    V(&other_tu -> stt_lck);
 
     tu -> cur_stt = TU_ON_HOOK;
+    V(&tu -> stt_lck);
     sprintf(msg, "%s %d\n", tu_state_names[0], tu -> fd_ext);
     Write(tu -> fd_ext, msg, strlen(msg)); //on hook
 
@@ -211,7 +217,6 @@ int tu_dial(TU *tu, int ext){
     char *msg = Malloc(50);
 
     if (ext < 0){ //if invalid extension
-        debug("IT WAS GIVEN AN INVALID EXTENSION");
         return -1;
     }
 
@@ -225,9 +230,10 @@ int tu_dial(TU *tu, int ext){
             break;
         }
     }
-
+    P(&tu -> stt_lck);
     if (i == PBX_MAX_EXTENSIONS){ //if it wasn't found
         tu -> cur_stt = TU_ERROR;
+        V(&tu -> stt_lck);
         sprintf(msg, "%s\n", tu_state_names[6]);
         Write(tu -> fd_ext, msg, strlen(msg)); //error
         Free(msg);
@@ -244,7 +250,9 @@ int tu_dial(TU *tu, int ext){
             tu -> cur_stt = TU_RING_BACK;
             sprintf(msg, "%s\n", tu_state_names[3]);
             Write(tu -> fd_ext, msg, strlen(msg)); //ring back
+            P(&other_tu -> stt_lck);
             other_tu -> cur_stt = TU_RINGING;
+            V(&other_tu -> stt_lck);
             sprintf(msg, "%s\n", tu_state_names[1]);
             Write(other_tu -> fd_ext, msg, strlen(msg)); //ringing
         } 
@@ -255,6 +263,7 @@ int tu_dial(TU *tu, int ext){
         }
 
     }
+    V(&tu -> stt_lck);
     Free(msg);
   
     return 0;
@@ -263,10 +272,12 @@ int tu_dial(TU *tu, int ext){
 int tu_chat(TU *tu, char *msg){
     char *p_msg = Malloc(50);
 
+    P(&tu -> stt_lck);
     if (tu -> cur_stt != TU_CONNECTED){
         Free(p_msg);
         return -1;
     }
+    V(&tu -> stt_lck);
 
     sprintf(p_msg, "chat %s\n", msg);
     Write(tu -> conn, p_msg, strlen(p_msg)); //send message
