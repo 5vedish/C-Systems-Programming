@@ -418,9 +418,6 @@ void *sf_memalign(size_t size, size_t align) {
 }
 
 //Helper Methods
-
-//Helper Methods For Malloc
-
 sf_block *ret_free(size_t size){
 
     sf_block *block = sf_free_list_heads;
