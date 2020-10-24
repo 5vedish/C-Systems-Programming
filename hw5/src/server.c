@@ -42,7 +42,6 @@ void *pbx_client_service(void *arg){
     //main loop
     while (1){
     //set up and resetting
-
     int f_cnt = 1; //counter for reallocation
     int ext = 0; //veriable for extension
     int end, done = 0; //for breaking out of loop
