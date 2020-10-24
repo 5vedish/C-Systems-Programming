@@ -20,7 +20,6 @@ void sigterm_handler(int sig){ //terminate child process via exit
     _exit(EXIT_SUCCESS);
 }
 
-
 /*
  * worker
  * (See polya.h for specification.)
