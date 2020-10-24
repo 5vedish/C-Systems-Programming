@@ -143,10 +143,7 @@ int compress(FILE *in, FILE *out, int bsize) {
 
     fputc(0x82, stdout);
 
-
-
-
-    return 0;
+    return 0; //END OF PROGRESS
 
     int value, loop, temp = 0, temp2, choice;
 
@@ -200,15 +197,7 @@ int compress(FILE *in, FILE *out, int bsize) {
 
     value = value | temp;
 
-    
-
-
-
-
     return 0;
-
-
-    //testing stuff below
 
     init_digram_hash();
 
@@ -218,13 +207,7 @@ int compress(FILE *in, FILE *out, int bsize) {
     printf("%d",test -> value);
     printf("%d",test -> next -> value);
 
- 
-
-
     digram_put(test);
-
-
-    
     digram_delete(test);
     digram_put(test);
 
@@ -233,12 +216,6 @@ int compress(FILE *in, FILE *out, int bsize) {
     printf("\n%d", test2 -> value);
 
     return 0;
-
-
-
-
-
-
     return EOF;
 }
 
@@ -347,7 +324,6 @@ int decompress(FILE *in, FILE *out) {
         i++;
     }
 
-
     return EOF;
 }
 
@@ -367,9 +343,7 @@ int decompress(FILE *in, FILE *out) {
  * @modifies global variable "global_options" to contain a bitmap representing
  * the selected options.
  */
-int validargs(int argc, char **argv)
-{
-   
+int validargs(int argc, char **argv){
 
     global_options = 0;
     int index;
@@ -381,8 +355,6 @@ int validargs(int argc, char **argv)
     if (argc < 2 || argc == 0){ //if there aren't enough args
         return -1;
     }
-
-    
 
     if ((*(*(argv+1)) == '-' && *((*(argv+1))+1)  == 'h')){ //checking for the -h flag
         if (*((*(argv+1))+2) != '\0'){
@@ -500,22 +472,3 @@ int expand(SYMBOL *symbol){
 
     return num_bytes;
 }
-
-
-
-// void expand(SYMBOL *symbol){
-
-//     SYMBOL *rp = symbol;
-
-//     rp = rp -> next;
-
-//     if (rp -> value < FIRST_NONTERMINAL){
-
-//         while (rp != symbol){
-//             fputc(rp -> value, stdout);
-//             rp = rp -> next;
-//         }
-//     }
-
-
-// }

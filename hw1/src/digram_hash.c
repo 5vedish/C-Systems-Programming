@@ -92,9 +92,7 @@ int digram_delete(SYMBOL *digram) {
 
         }
 
-        }
-
-        
+        }  
     }
 
     return -1;
@@ -145,6 +143,5 @@ int digram_put(SYMBOL *digram) {
     } else {
         return 1;
     }
-
     return -1;
 }
