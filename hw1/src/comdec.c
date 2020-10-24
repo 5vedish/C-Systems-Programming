@@ -60,7 +60,6 @@ extern SYMBOL *add_symbol(SYMBOL *s, SYMBOL *rule);
 int expand();
 extern SYMBOL *recycled_symbols;
 
-
 /*
  * You may modify this file and/or move the functions contained here
  * to other source files (except for main.c) as you wish.
