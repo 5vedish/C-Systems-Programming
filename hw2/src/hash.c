@@ -152,5 +152,4 @@ h_stats()
     fprintf(stderr, "  Longest key search: %d\n", hs_longsearch);
     fflush(stderr);
 }
-
 #endif
